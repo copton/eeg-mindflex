@@ -1,7 +1,7 @@
 from pathlib import Path
-
 import time
 from datetime import datetime
+
 import serial
 
 # Replace with your serial port
