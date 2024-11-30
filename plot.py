@@ -1,10 +1,13 @@
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import numpy as np
 import time
+import sys
 from typing import Optional
 
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
 from interpret import replay, Packet
+
+sensor_data = replay(sys.argv[1], 0.1)
 
 
 class Graph:
@@ -76,7 +79,6 @@ ax.set_xlabel("Time (s)", fontsize=8)
 ax.set_ylabel("Value", fontsize=8)
 ax.legend(loc="upper right", fontsize=8)  # Add a legend
 
-sensor_data = replay("out/2024-11-30_19-28-08.bin", 0.1)
 
 # Start time for the time series
 start_time = time.time()
