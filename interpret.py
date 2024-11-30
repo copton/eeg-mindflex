@@ -19,12 +19,19 @@ class Eeg:
 
 
 @dataclass(frozen=True)
-class Packet:
+class Aggregated:
     quality: int
     attention: int
     meditation: int
     eeg: Eeg
-    raw: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class Raw:
+    value: int
+
+
+Packet = Raw | Aggregated
 
 
 class MindFlex:
@@ -71,7 +78,9 @@ class MindFlex:
                         in_packet = False
                         if (~(checksum_total & 255) & 255) == packet_checksum:
                             if packet_len > 4:
-                                yield self.parser(packet)
+                                yield self.aggregated_parser(packet)
+                            else:
+                                yield self.raw_parser(packet)
                         else:
                             print(~(checksum_total & 255) & 255)
                             print(packet_checksum)
@@ -87,13 +96,19 @@ class MindFlex:
         except KeyboardInterrupt as e:
             return
 
-    def parser(self, packet: list[str]) -> Packet:
-        # See the MindSet Communications Protocol
+    def raw_parser(self, packet: list[str]) -> Raw:
+        code_level = ord(packet[1])
+        if code_level != 0x80:
+            raise ValueError(f"raw packet with unexpected code '{code_level}`")
+
+        value = ord(packet[2]) << 8 | ord(packet[3])
+        return Raw(value=value)
+
+    def aggregated_parser(self, packet: list[str]) -> Aggregated:
         quality: Optional[int] = None
         attention: Optional[int] = None
         meditation: Optional[int] = None
         eeg: list[int] = []
-        raw: Optional[int] = None
 
         # The first byte in the list was packet_len, so start at i = 1
         i = 1
@@ -121,9 +136,8 @@ class MindFlex:
                     )
                 i += 26
             # Raw Wave Value
-            elif code_level == 0x80:
-                raw = ord(packet[i + 1]) << 8 | ord(packet[i + 2])
-                i += 4
+            else:
+                raise ValueError(f"unexpected code '{code_level}'")
 
         if quality is None:
             raise ValueError("quality is None")
@@ -134,7 +148,7 @@ class MindFlex:
         if len(eeg) != 8:
             raise ValueError(f"invalid eeg readings: {len(eeg)}")
 
-        return Packet(
+        return Aggregated(
             quality=quality,
             attention=attention,
             meditation=meditation,
@@ -148,7 +162,6 @@ class MindFlex:
                 low_gamma=eeg[6],
                 mid_gamma=eeg[7],
             ),
-            raw=raw,
         )
 
 
