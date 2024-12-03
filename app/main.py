@@ -73,7 +73,7 @@ def main():
         app = app_live(args.live, record)
 
     if args.replay:
-        if args.record is not None:
+        if args.record:
             sys.stderr.write(f"--record is not supported in --replay mode")
             sys.exit(1)
 

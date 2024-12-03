@@ -31,7 +31,6 @@ def read_serial_task(
     stop: Event,
 ) -> None:
     with _coordinated(stop):
-        start = time.time()
 
         def reader() -> Generator[int, None, None]:
             with serial.Serial(
@@ -52,9 +51,11 @@ def read_serial_task(
                     else:
                         time.sleep(0.1)
 
+        last = time.time()
         for packet in parse(reader()):
             now = time.time()
-            output.put((now - start, packet))
+            output.put((now - last, packet))
+            last = now
 
 
 def fork_task(
@@ -98,8 +99,9 @@ def replay_task(
     with _coordinated(stop):
         with open(file, "rb") as fd:
             while not stop.is_set():
-                data = pickle.load(fd)
-                output.put(data)
+                delay, packet = pickle.load(fd)
+                time.sleep(delay)
+                output.put((delay, packet))
 
 
 def print_packets_task(
