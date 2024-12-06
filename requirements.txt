@@ -1,3 +1,7 @@
 numpy
 pyserial
-matplotlib
+numpy
+pyqtgraph
+pyside6
+black
+isort

@@ -1,24 +1,31 @@
-import sys
 import argparse
 import os
-from functools import partial
+import sys
 from datetime import datetime
+from enum import Enum
+from functools import partial
 from pathlib import Path
-from typing import Optional
 from queue import Queue
+from typing import Optional
 
 from tasks import (
-    run_app,
     Task,
-    read_serial_task,
     fork_task,
-    write_file_task,
     print_packets_task,
+    read_serial_task,
     replay_task,
+    run_app,
+    write_file_task,
+    gui_task,
 )
 
 RECORDINGS_DIR = "recordings"
 BAUD_RATE = 57600
+
+
+class Mode(str, Enum):
+    GUI = "gui"
+    TERMINAL = "terminal"
 
 
 def main():
@@ -59,6 +66,8 @@ def main():
     # Parse arguments
     args = parser.parse_args()
 
+    mode = Mode(args.mode)
+
     if args.live:
         if args.record:
             os.makedirs(RECORDINGS_DIR, exist_ok=True)
@@ -70,9 +79,9 @@ def main():
         else:
             record = None
 
-        app = app_live(args.live, record)
+        app = app_live(args.live, record, mode)
 
-    if args.replay:
+    elif args.replay:
         if args.record:
             sys.stderr.write(f"--record is not supported in --replay mode")
             sys.exit(1)
@@ -82,20 +91,18 @@ def main():
             sys.stderr.write(f"Replay file `{replay}` does not exist")
             sys.exit(1)
 
-        app = app_replay(replay)
+        app = app_replay(replay, mode)
 
-    # Placeholder for actual logic
-    if args.mode == "gui":
-        print("Launching GUI mode...")
-        # Insert GUI logic here
     else:
-        print("Launching terminal mode...")
-        # Insert terminal logic here
+        sys.stderr.write(
+            "internal error: argparse is configured with expecting one of --live or --replay"
+        )
+        sys.exit(1)
 
     run_app(app)
 
 
-def app_live(port: str, record: Optional[Path]) -> list[Task]:
+def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Task]:
     tasks: list[Task] = []
     packets: Queue = Queue()
     tasks.append(partial(read_serial_task, port, BAUD_RATE, packets))
@@ -107,16 +114,24 @@ def app_live(port: str, record: Optional[Path]) -> list[Task]:
         tasks.append(partial(write_file_task, packets_fork1, record))
         packets = packets_fork2
 
-    tasks.append(partial(print_packets_task, packets, sys.stdout))
+    if mode == Mode.TERMINAL:
+        tasks.append(partial(print_packets_task, packets, sys.stdout))
+    else:
+        tasks.append(partial(gui_task, packets))
 
     return tasks
 
 
-def app_replay(replay: Path) -> list[Task]:
+def app_replay(replay: Path, mode: Mode) -> list[Task]:
     tasks: list[Task] = []
     packets: Queue = Queue()
     tasks.append(partial(replay_task, replay, packets))
-    tasks.append(partial(print_packets_task, packets, sys.stdout))
+
+    if mode == Mode.TERMINAL:
+        tasks.append(partial(print_packets_task, packets, sys.stdout))
+    else:
+        tasks.append(partial(gui_task, packets))
+
     return tasks
 
 

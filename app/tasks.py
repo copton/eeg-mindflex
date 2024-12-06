@@ -1,15 +1,16 @@
-import time
-from threading import Event, Thread
-from contextlib import contextmanager
 import pickle
+import time
+from contextlib import contextmanager
+from parser import parse
 from pathlib import Path
-from queue import Queue, Empty
-from typing import Generator, Callable, TextIO
+from queue import Empty, Queue
+from threading import Event, Thread
+from typing import Callable, Generator, TextIO
 
 import serial  # type: ignore
 
+from gui import Gui
 from model import Packet
-from parser import parse
 
 
 @contextmanager
@@ -33,6 +34,12 @@ def read_serial_task(
     with _coordinated(stop):
 
         def reader() -> Generator[int, None, None]:
+            # with open(port, "rb") as fd:
+            #     while not stop.is_set():
+            #         data = fd.read(64)
+            #         for p in data:
+            #             yield p
+            #         time.sleep(0.01)
             with serial.Serial(
                 port,
                 baud,
@@ -119,7 +126,24 @@ def print_packets_task(
             output.write("\n")
 
 
+def gui_task(input: Queue[tuple[float, Packet]], stop: Event) -> None:
+    def watchdog():
+        with _coordinated(stop):
+            while not stop.is_set():
+                time.sleep(1)
+            gui.quit()
+
+    thread = Thread(target=watchdog, args=(), daemon=True)
+    thread.start()
+    gui = Gui(input)
+    gui.run()
+    stop.set()
+    thread.join()
+
+
 def run_app(tasks: list[Task]) -> None:
+    # GUI frameworks insist on running on main thread
+
     stop = Event()
     threads = [
         Thread(
@@ -127,16 +151,15 @@ def run_app(tasks: list[Task]) -> None:
             args=(stop,),
             daemon=True,
         )
-        for task in tasks
+        for task in tasks[:-1]
     ]
 
     for thread in threads:
         thread.start()
 
     try:
-        while not stop.is_set():
-            time.sleep(1)
-    except Exception:
+        tasks[-1](stop)
+    finally:
         stop.set()
 
     for thread in threads:

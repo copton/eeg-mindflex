@@ -4,7 +4,7 @@ https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protoco
 
 from typing import Generator, Optional
 
-from model import Packet, Raw, Aggregated, Eeg
+from model import Aggregated, Eeg, Packet, Raw
 
 MAX_PACKET_LEN = 169
 
