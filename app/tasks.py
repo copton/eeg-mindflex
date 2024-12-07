@@ -35,12 +35,6 @@ def read_serial_task(
     with _coordinated(stop):
 
         def reader() -> Generator[int, None, None]:
-            # with open(port, "rb") as fd:
-            #     while not stop.is_set():
-            #         data = fd.read(64)
-            #         for p in data:
-            #             yield p
-            #         time.sleep(0.01)
             with serial.Serial(
                 port,
                 baud,
@@ -59,11 +53,10 @@ def read_serial_task(
                     else:
                         time.sleep(0.1)
 
-        last = time.time()
+        start = time.time()
         for packet in parse(reader()):
             now = time.time()
-            output.put((now - last, packet))
-            last = now
+            output.put((now - start, packet))
 
 
 def fork_task(
