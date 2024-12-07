@@ -9,8 +9,9 @@ from typing import Callable, Generator, TextIO
 
 import serial  # type: ignore
 
+from average import Average
 from gui import Gui
-from model import Packet, Aggregated, Raw
+from model import Packet, Aggregated, Raw, Eeg
 
 
 @contextmanager
@@ -113,10 +114,11 @@ def replay_task(
 
 def prepare_data_task(
     input: Queue[tuple[float, Packet]],
-    eeg_data: Queue[tuple[float, Aggregated]],
+    eeg_data: Queue[tuple[float, Eeg]],
     raw_data: Queue[tuple[float, Raw]],
     stop: Event,
 ) -> None:
+    average = Average()
     with _coordinated(stop):
         while not stop.is_set():
             try:
@@ -125,13 +127,13 @@ def prepare_data_task(
                 continue
 
             if isinstance(packet, Aggregated):
-                eeg_data.put((timestamp, packet))
+                eeg_data.put((timestamp, average.update(packet.eeg)))
             else:
                 raw_data.put((timestamp, packet))
 
 
 def print_packets_task(
-    eeg_data: Queue[tuple[float, Aggregated]],
+    eeg_data: Queue[tuple[float, Eeg]],
     raw_data: Queue[tuple[float, Raw]],
     output: TextIO,
     stop: Event,
@@ -150,7 +152,7 @@ def print_packets_task(
 
 
 def gui_task(
-    eeg_data: Queue[tuple[float, Aggregated]],
+    eeg_data: Queue[tuple[float, Eeg]],
     raw_data: Queue[tuple[float, Raw]],
     stop: Event,
 ) -> None:

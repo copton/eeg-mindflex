@@ -19,6 +19,7 @@ from tasks import (
     prepare_data_task,
     gui_task,
 )
+from model import Eeg, Raw, Packet
 
 RECORDINGS_DIR = "recordings"
 BAUD_RATE = 57600
@@ -105,7 +106,7 @@ def main():
 
 def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Task]:
     tasks: list[Task] = []
-    packets: Queue = Queue()
+    packets: Queue[tuple[float, Packet]] = Queue()
     tasks.append(partial(read_serial_task, port, BAUD_RATE, packets))
 
     if record is not None:
@@ -121,17 +122,17 @@ def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Task]:
 
 def app_replay(replay: Path, mode: Mode) -> list[Task]:
     tasks: list[Task] = []
-    packets: Queue = Queue()
+    packets: Queue[tuple[float, Packet]] = Queue()
     tasks.append(partial(replay_task, replay, packets))
 
     tasks.extend(_consumers(packets, mode))
     return tasks
 
 
-def _consumers(packets: Queue, mode: Mode) -> list[Task]:
+def _consumers(packets: Queue[tuple[float, Packet]], mode: Mode) -> list[Task]:
     tasks: list[Task] = []
-    eeg_data: Queue = Queue()
-    raw_data: Queue = Queue()
+    eeg_data: Queue[tuple[float, Eeg]] = Queue()
+    raw_data: Queue[tuple[float, Raw]] = Queue()
     tasks.append(partial(prepare_data_task, packets, eeg_data, raw_data))
 
     if mode == Mode.TERMINAL:

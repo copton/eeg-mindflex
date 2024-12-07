@@ -4,9 +4,9 @@ from queue import Queue
 from threading import Thread
 
 import numpy as np
-import pyqtgraph as pg
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import (
+import pyqtgraph as pg  # type: ignore
+from PySide6.QtCore import QTimer  # type: ignore
+from PySide6.QtWidgets import (  # type: ignore
     QApplication,
     QColorDialog,
     QHBoxLayout,
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from model import Aggregated, Packet, Raw
+from model import Eeg, Raw, bands
 
 color_palette = [
     (255, 0, 0),  # Red
@@ -64,10 +64,10 @@ class RawPlotWindow(QWidget):
 
 
 class EegPlotWindow(QWidget):
-    def __init__(self, eeg_data: Queue[tuple[float, Aggregated]]):
+    def __init__(self, eeg_data: Queue[tuple[float, Eeg]]):
         super().__init__()
 
-        self.eeg_data: Queue[tuple[float, Aggregated]] = eeg_data
+        self.eeg_data: Queue[tuple[float, Eeg]] = eeg_data
 
         self.setWindowTitle("eeg data")
         self.plot_widget = pg.PlotWidget()
@@ -75,17 +75,6 @@ class EegPlotWindow(QWidget):
         layout.addWidget(self.plot_widget)
         self.setLayout(layout)
         self.plot_widget.addLegend()
-
-        self.bands = (
-            "delta",
-            "theta",
-            "low_alpha",
-            "high_alpha",
-            "low_beta",
-            "high_beta",
-            "low_gamma",
-            "mid_gamma",
-        )
 
         self.plots = {
             band: self.plot_widget.plot(
@@ -95,16 +84,16 @@ class EegPlotWindow(QWidget):
                 ),
                 name=band,
             )
-            for i, band in enumerate(self.bands)
+            for i, band in enumerate(bands())
         }
 
-        self.plot_data = {band: np.zeros(100) for band in self.bands}
+        self.plot_data = {band: np.zeros(100) for band in bands()}
 
     def on_timer(self):
         while not self.eeg_data.empty():
-            delay, packet = self.eeg_data.get()
-            for band in self.bands:
-                value = getattr(packet.eeg, band)
+            delay, eeg = self.eeg_data.get()
+            for band in bands():
+                value = getattr(eeg, band)
                 self.plot_data[band] = np.roll(self.plot_data[band], -1)
                 self.plot_data[band][-1] = value
                 self.plots[band].setData(self.plot_data[band])

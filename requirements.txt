@@ -5,3 +5,4 @@ pyqtgraph
 pyside6
 black
 isort
+mypy
