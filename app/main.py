@@ -16,6 +16,7 @@ from tasks import (
     replay_task,
     run_app,
     write_file_task,
+    prepare_data_task,
     gui_task,
 )
 
@@ -114,11 +115,7 @@ def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Task]:
         tasks.append(partial(write_file_task, packets_fork1, record))
         packets = packets_fork2
 
-    if mode == Mode.TERMINAL:
-        tasks.append(partial(print_packets_task, packets, sys.stdout))
-    else:
-        tasks.append(partial(gui_task, packets))
-
+    tasks.extend(_consumers(packets, mode))
     return tasks
 
 
@@ -127,10 +124,20 @@ def app_replay(replay: Path, mode: Mode) -> list[Task]:
     packets: Queue = Queue()
     tasks.append(partial(replay_task, replay, packets))
 
+    tasks.extend(_consumers(packets, mode))
+    return tasks
+
+
+def _consumers(packets: Queue, mode: Mode) -> list[Task]:
+    tasks: list[Task] = []
+    eeg_data: Queue = Queue()
+    raw_data: Queue = Queue()
+    tasks.append(partial(prepare_data_task, packets, eeg_data, raw_data))
+
     if mode == Mode.TERMINAL:
-        tasks.append(partial(print_packets_task, packets, sys.stdout))
+        tasks.append(partial(print_packets_task, eeg_data, raw_data, sys.stdout))
     else:
-        tasks.append(partial(gui_task, packets))
+        tasks.append(partial(gui_task, eeg_data, raw_data))
 
     return tasks
 

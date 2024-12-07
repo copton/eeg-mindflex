@@ -10,7 +10,7 @@ from typing import Callable, Generator, TextIO
 import serial  # type: ignore
 
 from gui import Gui
-from model import Packet
+from model import Packet, Aggregated, Raw
 
 
 @contextmanager
@@ -111,22 +111,49 @@ def replay_task(
                 output.put((delay, packet))
 
 
-def print_packets_task(
+def prepare_data_task(
     input: Queue[tuple[float, Packet]],
-    output: TextIO,
+    eeg_data: Queue[tuple[float, Aggregated]],
+    raw_data: Queue[tuple[float, Raw]],
     stop: Event,
 ) -> None:
     with _coordinated(stop):
         while not stop.is_set():
             try:
-                _, packet = input.get(block=True, timeout=0.1)
+                timestamp, packet = input.get(block=True, timeout=0.1)
             except Empty:
                 continue
+
+            if isinstance(packet, Aggregated):
+                eeg_data.put((timestamp, packet))
+            else:
+                raw_data.put((timestamp, packet))
+
+
+def print_packets_task(
+    eeg_data: Queue[tuple[float, Aggregated]],
+    raw_data: Queue[tuple[float, Raw]],
+    output: TextIO,
+    stop: Event,
+) -> None:
+    def go(queue: Queue):
+        while not queue.empty():
+            _, packet = queue.get(block=False)
             output.write(str(packet))
             output.write("\n")
 
+    with _coordinated(stop):
+        while not stop.is_set():
+            go(raw_data)
+            go(eeg_data)
+            time.sleep(0.1)
 
-def gui_task(input: Queue[tuple[float, Packet]], stop: Event) -> None:
+
+def gui_task(
+    eeg_data: Queue[tuple[float, Aggregated]],
+    raw_data: Queue[tuple[float, Raw]],
+    stop: Event,
+) -> None:
     def watchdog():
         with _coordinated(stop):
             while not stop.is_set():
@@ -135,7 +162,7 @@ def gui_task(input: Queue[tuple[float, Packet]], stop: Event) -> None:
 
     thread = Thread(target=watchdog, args=(), daemon=True)
     thread.start()
-    gui = Gui(input)
+    gui = Gui(eeg_data, raw_data)
     gui.run()
     stop.set()
     thread.join()
