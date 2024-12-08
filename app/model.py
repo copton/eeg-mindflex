@@ -1,5 +1,7 @@
 from dataclasses import dataclass, fields
 
+import numpy as np
+
 
 def bands() -> list[str]:
     return [f.name for f in fields(Eeg)]
@@ -16,25 +18,19 @@ class Eeg:
     low_gamma: int
     mid_gamma: int
 
-    def __add__(self, other: "Eeg") -> "Eeg":
-        if not isinstance(other, Eeg):
-            raise TypeError(f"Cannot add {type(other)} to Eeg")
-
-        return Eeg(
-            **{
-                field.name: getattr(self, field.name) + getattr(other, field.name)
-                for field in fields(self)
-            }
-        )
-
-    def __truediv__(self, other):
-        return Eeg(
-            **{field.name: getattr(self, field.name) / other for field in fields(self)}
-        )
+    def as_vector(self) -> np.ndarray:
+        return np.array([getattr(self, band) for band in bands()])
 
     @classmethod
-    def zero(cls):
-        return cls(**{field.name: 0 for field in fields(cls)})
+    def from_vector(cls, arr: np.ndarray) -> "Eeg":
+        bs = bands()
+        if len(bs) != len(arr):
+            raise ValueError(f"length mismatch, {len(bs)} vs. {len(arr)}")
+        return Eeg(**{band: value for band, value in zip(bs, arr)})
+
+    @classmethod
+    def zero(cls) -> "Eeg":
+        return cls.from_vector(np.zeros(len(bands())))
 
 
 @dataclass(frozen=True)

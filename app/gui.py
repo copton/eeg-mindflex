@@ -1,7 +1,5 @@
 import sys
-import time
 from queue import Queue
-from threading import Thread, Lock
 
 import numpy as np
 import pyqtgraph as pg  # type: ignore
@@ -98,9 +96,6 @@ class Gui:
     def __init__(self, eeg_data: Queue, raw_data: Queue) -> None:
         self.app = QApplication(sys.argv)
 
-        self.lock = Lock()
-        self.running = False
-
         self.eeg_window = EegPlotWindow(eeg_data)
         self.eeg_window.resize(1024, 768)
         self.eeg_window.show()
@@ -114,19 +109,15 @@ class Gui:
         self.timer.start(50)
 
     def on_timer(self):
-        self.eeg_window.on_timer()
-        self.raw_window.on_timer()
+        try:
+            self.eeg_window.on_timer()
+            self.raw_window.on_timer()
+        except KeyboardInterrupt:
+            self.quit()
 
     def run(self):
-        with self.lock:
-            if self.running:
-                return
-            self.running = True
-            self.app.exec()
+        self.app.exec()
 
     def quit(self):
-        with self.lock:
-            if not self.running:
-                return
-            self.running = False
+        if QApplication.instance() is not None:
             QApplication.quit()

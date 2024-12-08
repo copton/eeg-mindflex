@@ -9,10 +9,12 @@ from typing import Callable, Generator, TextIO
 import logging
 
 import serial  # type: ignore
+import numpy as np
 
-from average import Average
 from gui import Gui
 from model import Packet, Aggregated, Raw, Eeg
+
+WINDOW_SIZE = 60
 
 
 def coordinated_task(func):
@@ -46,7 +48,7 @@ def read_serial_task(
                 data = fd.read(128)
                 for p in data:
                     yield p
-                time.sleep(0.1)
+                time.sleep(0.01)
 
     def serial_reader() -> Generator[int, None, None]:
         with serial.Serial(
@@ -126,6 +128,16 @@ def replay_task(
             output.put((delay, packet))
 
 
+def componentwise_median(vectors: list[np.ndarray]) -> Eeg:
+    # Stack the arrays into a single 2D array
+    array_stack = np.vstack(vectors)
+
+    # Compute the component-wise median
+    median_vector = np.median(array_stack, axis=0)
+
+    return Eeg.from_vector(median_vector)
+
+
 @coordinated_task
 def prepare_data_task(
     input: Queue[tuple[float, Packet]],
@@ -134,7 +146,7 @@ def prepare_data_task(
     stop: Event,
     logger: logging.Logger,
 ) -> None:
-    average = Average()
+    window: list[np.ndarray] = []
     while not stop.is_set():
         try:
             timestamp, packet = input.get(block=True, timeout=0.1)
@@ -142,7 +154,13 @@ def prepare_data_task(
             continue
 
         if isinstance(packet, Aggregated):
-            eeg_data.put((timestamp, average.update(packet.eeg)))
+            window.append(packet.eeg.as_vector())
+            logger.debug("window size is %d", len(window))
+            if len(window) == WINDOW_SIZE:
+                eeg_data.put((timestamp, componentwise_median(window)))
+                window.pop(-1)
+            else:
+                eeg_data.put((timestamp, Eeg.zero()))
         else:
             raw_data.put((timestamp, packet))
 
