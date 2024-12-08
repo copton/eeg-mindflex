@@ -25,8 +25,9 @@ def coordinated_task(func):
             func(*args, stop=stop, logger=logger)
         except Exception:
             logger.debug("abort")
-            stop.set()
             raise
+        finally:
+            stop.set()
         logger.debug("stop")
 
     return wrapper
@@ -45,6 +46,8 @@ def read_serial_task(
         with open(port, "br") as fd:
             while not stop.is_set():
                 data = fd.read(128)
+                if not data:
+                    break
                 for p in data:
                     yield p
                 time.sleep(0.01)

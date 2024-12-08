@@ -3,8 +3,11 @@ https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protoco
 """
 
 from typing import Generator, Optional
+import logging
 
 from model import Aggregated, Eeg, Packet, Raw
+
+logger = logging.getLogger(__name__)
 
 MAX_PACKET_LEN = 169
 
@@ -32,7 +35,7 @@ def parse(input: Generator[int, None, None]) -> Generator[Packet, None, None]:
                     continue
                 packet_len = cur_byte
                 if packet_len >= MAX_PACKET_LEN:
-                    print("Warning: Packet too long: %s" % packet_len)
+                    logger.warning("Packet too long: %d", packet_len)
                     continue
                 checksum_total = 0
                 payload = []
@@ -41,7 +44,7 @@ def parse(input: Generator[int, None, None]) -> Generator[Packet, None, None]:
                 packet_checksum = cur_byte
                 in_packet = False
                 if (~(checksum_total & 0xFF) & 0xFF) != packet_checksum:
-                    print("Warning: invalid checksum")
+                    logger.warning("invalid checksum")
                     continue
 
                 if packet_len > 4:
@@ -61,12 +64,12 @@ def parse(input: Generator[int, None, None]) -> Generator[Packet, None, None]:
 def raw_parser(payload: list[int]) -> Optional[Raw]:
     code_level = payload[0]
     if code_level != 0x80:
-        print(f"Warning: raw packet with unexpected code '{code_level}`")
+        logger.warning("raw packet with unexpected code %d", code_level)
         return None
 
     vlength = payload[1]
     if vlength != 2:
-        print(f"Waning: raw packet with unexpected vlength '{vlength}`")
+        logger.warning("raw packet with unexpected vlength %d", vlength)
         return None
 
     value = (payload[2] << 8) | payload[3]
@@ -101,25 +104,30 @@ def aggregated_parser(payload: list[int]) -> Optional[Aggregated]:
             i += 2
         # EEG power
         elif code_level == 0x83:
-            for c in range(i + 1, i + 25, 3):
+            i += 1
+            vlength = payload[i]
+            if vlength != 24:
+                logger.warning("unexpected vlength %d", vlength)
+                return None
+            i += 1
+            for c in range(i, i + vlength, 3):
                 eeg.append(payload[c] << 16 | payload[c + 1] << 8 | payload[c + 2])
-            i += 26
-        # Raw Wave Value
+            i += vlength
         else:
-            print(f"Warning: unexpected crode '{code_level}'")
+            logger.warning("unexpected code %d'", code_level)
             return None
 
     if quality is None:
-        print("Warning: quality is None")
+        logger.warning("quality is None")
         return None
     if attention is None:
-        print("Warning: attention is None")
+        logger.warning("attention is None")
         return None
     if meditation is None:
-        print("Warning: meditation is None")
+        logger.warning("meditation is None")
         return None
     if len(eeg) != 8:
-        print(f"Warning: invalid eeg readings: {len(eeg)}")
+        logger.warning("invalid eeg readings: %d", len(eeg))
         return None
 
     return Aggregated(
