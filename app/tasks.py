@@ -1,18 +1,17 @@
+import logging
 import pickle
 import time
-from contextlib import contextmanager
 from parser import parse
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Callable, Generator, TextIO
-import logging
 
-import serial  # type: ignore
 import numpy as np
+import serial  # type: ignore
 
 from gui import Gui
-from model import Packet, Aggregated, Raw, Eeg
+from model import Aggregated, Eeg, Packet, Raw
 
 WINDOW_SIZE = 60
 

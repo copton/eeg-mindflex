@@ -3,7 +3,6 @@ https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protoco
 """
 
 from typing import Generator, Optional
-import struct
 
 from model import Aggregated, Eeg, Packet, Raw
 

@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import sys
 from datetime import datetime
@@ -6,25 +7,22 @@ from enum import Enum
 from functools import partial
 from pathlib import Path
 from queue import Queue
-from typing import Optional, Callable
-import logging
+from typing import Callable, Optional
 
+from model import Eeg, Packet, Raw
 from tasks import (
     fork_task,
+    gui_task,
+    prepare_data_task,
     print_packets_task,
     read_serial_task,
     replay_task,
     run_app,
     write_file_task,
-    prepare_data_task,
-    gui_task,
 )
-from model import Eeg, Raw, Packet
 
 RECORDINGS_DIR = "recordings"
 BAUD_RATE = 57600
-
-import logging
 
 
 def setup_console_logger(enable_debug: bool) -> None:
@@ -42,7 +40,8 @@ def setup_console_logger(enable_debug: bool) -> None:
     )
     console_handler.setFormatter(formatter)
 
-    if not logger.handlers:  # Avoid adding multiple handlers during reconfiguration
+    # Avoid adding multiple handlers during reconfiguration
+    if not logger.handlers:
         logger.addHandler(console_handler)
 
 
@@ -116,7 +115,7 @@ def main():
 
     elif args.replay:
         if args.record:
-            sys.stderr.write(f"--record is not supported in --replay mode")
+            sys.stderr.write("--record is not supported in --replay mode")
             sys.exit(1)
 
         replay = Path(args.replay)
@@ -128,7 +127,8 @@ def main():
 
     else:
         sys.stderr.write(
-            "internal error: argparse is configured with expecting one of --live or --replay"
+            "internal error: argparse is configured with expecting one of "
+            "--live or --replay"
         )
         sys.exit(1)
 
@@ -160,7 +160,10 @@ def app_replay(replay: Path, mode: Mode) -> list[Callable]:
     return tasks
 
 
-def _consumers(packets: Queue[tuple[float, Packet]], mode: Mode) -> list[Callable]:
+def _consumers(
+    packets: Queue[tuple[float, Packet]],
+    mode: Mode,
+) -> list[Callable]:
     tasks: list[Callable] = []
     eeg_data: Queue[tuple[float, Eeg]] = Queue()
     raw_data: Queue[tuple[float, Raw]] = Queue()

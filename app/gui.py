@@ -4,11 +4,7 @@ from queue import Queue
 import numpy as np
 import pyqtgraph as pg  # type: ignore
 from PySide6.QtCore import QTimer  # type: ignore
-from PySide6.QtWidgets import (  # type: ignore
-    QApplication,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget  # type: ignore
 
 from model import Eeg, Raw, bands
 

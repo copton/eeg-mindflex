@@ -6,3 +6,6 @@ pyside6
 black
 isort
 mypy
+flake8
+flake8-pyproject
+
