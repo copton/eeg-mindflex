@@ -104,6 +104,7 @@ def write_file_task(
     stop: Event,
     logger: logging.Logger,
 ) -> None:
+    logger.info("capturing recording to '%s'", file)
     with open(file, "wb") as fd:
         while not stop.is_set():
             try:
@@ -121,6 +122,7 @@ def replay_task(
     stop: Event,
     logger: logging.Logger,
 ) -> None:
+    logger.info("replaying recording from '%s'", file)
     with open(file, "rb") as fd:
         while not stop.is_set():
             delay, packet = pickle.load(fd)
@@ -129,12 +131,8 @@ def replay_task(
 
 
 def componentwise_median(vectors: list[np.ndarray]) -> Eeg:
-    # Stack the arrays into a single 2D array
     array_stack = np.vstack(vectors)
-
-    # Compute the component-wise median
     median_vector = np.median(array_stack, axis=0)
-
     return Eeg.from_vector(median_vector)
 
 

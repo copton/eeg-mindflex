@@ -109,7 +109,6 @@ def main():
                 Path(RECORDINGS_DIR)
                 / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
             )
-            print(f"recording to '{record}'")
         else:
             record = None
 

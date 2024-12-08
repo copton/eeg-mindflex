@@ -26,7 +26,7 @@ class Eeg:
         bs = bands()
         if len(bs) != len(arr):
             raise ValueError(f"length mismatch, {len(bs)} vs. {len(arr)}")
-        return Eeg(**{band: value for band, value in zip(bs, arr)})
+        return Eeg(**{band: int(value) for band, value in zip(bs, arr)})
 
     @classmethod
     def zero(cls) -> "Eeg":
