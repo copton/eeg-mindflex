@@ -158,7 +158,7 @@ def prepare_data_task(
             logger.debug("window size is %d", len(window))
             if len(window) == WINDOW_SIZE:
                 eeg_data.put((timestamp, componentwise_median(window)))
-                window.pop(-1)
+                window.pop(0)
             else:
                 eeg_data.put((timestamp, Eeg.zero()))
         else:
