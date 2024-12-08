@@ -155,11 +155,11 @@ def prepare_data_task(
 
         if isinstance(packet, Aggregated):
             window.append(packet.eeg.as_vector())
-            logger.debug("window size is %d", len(window))
             if len(window) == WINDOW_SIZE:
                 eeg_data.put((timestamp, componentwise_median(window)))
                 window.pop(0)
             else:
+                logger.debug("window size is %d", len(window))
                 eeg_data.put((timestamp, Eeg.zero()))
         else:
             raw_data.put((timestamp, packet))
