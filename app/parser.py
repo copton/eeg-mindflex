@@ -17,7 +17,10 @@ def parse(input: Generator[int, None, None]) -> Generator[Packet, None, None]:
     packet: Optional[Packet] = None
 
     while True:
-        cur_byte = next(input)
+        try:
+            cur_byte = next(input)
+        except StopIteration:
+            return
 
         if not in_packet and prev_byte == 0xAA and cur_byte == 0xAA:
             in_packet = True

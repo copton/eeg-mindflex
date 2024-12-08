@@ -6,10 +6,10 @@ from enum import Enum
 from functools import partial
 from pathlib import Path
 from queue import Queue
-from typing import Optional
+from typing import Optional, Callable
+import logging
 
 from tasks import (
-    Task,
     fork_task,
     print_packets_task,
     read_serial_task,
@@ -23,6 +23,27 @@ from model import Eeg, Raw, Packet
 
 RECORDINGS_DIR = "recordings"
 BAUD_RATE = 57600
+
+import logging
+
+
+def setup_console_logger(enable_debug: bool) -> None:
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    # Create a console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG if enable_debug else logging.INFO)
+
+    # Create and set a formatter
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    console_handler.setFormatter(formatter)
+
+    if not logger.handlers:  # Avoid adding multiple handlers during reconfiguration
+        logger.addHandler(console_handler)
 
 
 class Mode(str, Enum):
@@ -65,10 +86,21 @@ def main():
         help="Mode selector for output (default: terminal)",
     )
 
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Enable debug logging",
+    )
+
     # Parse arguments
     args = parser.parse_args()
 
     mode = Mode(args.mode)
+
+    setup_console_logger(args.debug)
+    logger = logging.getLogger(__name__)
+    logger.debug("debug logs enabled")
 
     if args.live:
         if args.record:
@@ -104,8 +136,8 @@ def main():
     run_app(app)
 
 
-def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Task]:
-    tasks: list[Task] = []
+def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Callable]:
+    tasks: list[Callable] = []
     packets: Queue[tuple[float, Packet]] = Queue()
     tasks.append(partial(read_serial_task, port, BAUD_RATE, packets))
 
@@ -120,8 +152,8 @@ def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Task]:
     return tasks
 
 
-def app_replay(replay: Path, mode: Mode) -> list[Task]:
-    tasks: list[Task] = []
+def app_replay(replay: Path, mode: Mode) -> list[Callable]:
+    tasks: list[Callable] = []
     packets: Queue[tuple[float, Packet]] = Queue()
     tasks.append(partial(replay_task, replay, packets))
 
@@ -129,8 +161,8 @@ def app_replay(replay: Path, mode: Mode) -> list[Task]:
     return tasks
 
 
-def _consumers(packets: Queue[tuple[float, Packet]], mode: Mode) -> list[Task]:
-    tasks: list[Task] = []
+def _consumers(packets: Queue[tuple[float, Packet]], mode: Mode) -> list[Callable]:
+    tasks: list[Callable] = []
     eeg_data: Queue[tuple[float, Eeg]] = Queue()
     raw_data: Queue[tuple[float, Raw]] = Queue()
     tasks.append(partial(prepare_data_task, packets, eeg_data, raw_data))
