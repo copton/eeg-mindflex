@@ -34,7 +34,15 @@ def read_serial_task(
 ) -> None:
     with _coordinated(stop):
 
-        def reader() -> Generator[int, None, None]:
+        def file_reader() -> Generator[int, None, None]:
+            with open(port, "br") as fd:
+                while True:
+                    data = fd.read(128)
+                    for p in data:
+                        yield p
+                    time.sleep(0.1)
+
+        def serial_reader() -> Generator[int, None, None]:
             with serial.Serial(
                 port,
                 baud,
@@ -42,7 +50,6 @@ def read_serial_task(
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
                 bytesize=serial.EIGHTBITS,
-                dsrdtr=True,
             ) as ser:
                 print(f"reading data from `{port}` at `{baud}` symbols per second")
                 while not stop.is_set():
@@ -54,7 +61,8 @@ def read_serial_task(
                         time.sleep(0.1)
 
         start = time.time()
-        for packet in parse(reader()):
+        gen = serial_reader if port.startswith("/dev") else file_reader
+        for packet in parse(gen()):
             now = time.time()
             output.put((now - start, packet))
 

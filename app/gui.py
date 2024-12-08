@@ -44,6 +44,7 @@ class RawPlotWindow(QWidget):
         layout.addWidget(self.plot_widget)
         self.setLayout(layout)
         self.plot_widget.addLegend()
+        self.plot_widget.setYRange(-500, 500)
 
         self.plot = self.plot_widget.plot(
             pen=pg.mkPen(

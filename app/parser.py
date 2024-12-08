@@ -3,6 +3,7 @@ https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protoco
 """
 
 from typing import Generator, Optional
+import struct
 
 from model import Aggregated, Eeg, Packet, Raw
 
@@ -44,10 +45,7 @@ def parse(input: Generator[int, None, None]) -> Generator[Packet, None, None]:
                     else:
                         yield raw_parser(packet)
                 else:
-                    print(~(checksum_total & 255) & 255)
-                    print(packet_checksum)
-                    print(packet)
-                    raise ValueError("Warning: invalid checksum")
+                    print("Warning: invalid checksum")
             else:
                 checksum_total += cur_byte
                 packet.append(cur_byte)
@@ -61,7 +59,16 @@ def raw_parser(packet: list[int]) -> Raw:
     if code_level != 0x80:
         raise ValueError(f"raw packet with unexpected code '{code_level}`")
 
-    value = packet[2] << 8 | packet[3]
+    vlength = packet[2]
+    if vlength != 2:
+        raise ValueError(f"raw packet with unexpected vlength '{vlength}`")
+
+    value = (packet[3] << 8) | packet[4]
+
+    # Check if the sign bit is set
+    if value & 0x8000:
+        value -= 0x10000
+
     return Raw(value=value)
 
 
