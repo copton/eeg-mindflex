@@ -15,7 +15,7 @@ color_palette = [
     (255, 255, 0),  # Yellow
     (255, 165, 0),  # Orange
     (75, 0, 130),  # Indigo
-    (238, 130, 238),  # Violet
+    (255, 255, 255),  # White
     (0, 255, 255),  # Cyan
 ]
 
@@ -69,14 +69,14 @@ class EegPlotWindow(QWidget):
             band: self.plot_widget.plot(
                 pen=pg.mkPen(
                     color=color_palette[i],
-                    width=1,
+                    width=2,
                 ),
                 name=band,
             )
             for i, band in enumerate(bands())
         }
 
-        self.plot_data = {band: np.zeros(100) for band in bands()}
+        self.plot_data = {band: np.zeros(1000) for band in bands()}
 
     def on_timer(self):
         while not self.eeg_data.empty():

@@ -50,7 +50,7 @@ def read_serial_task(
                     break
                 for p in data:
                     yield p
-                time.sleep(0.01)
+                time.sleep(0.001)
 
     def serial_reader() -> Generator[int, None, None]:
         with serial.Serial(
@@ -125,11 +125,15 @@ def replay_task(
     logger: logging.Logger,
 ) -> None:
     logger.info("replaying recording from '%s'", file)
+    last = None
     with open(file, "rb") as fd:
         while not stop.is_set():
-            delay, packet = pickle.load(fd)
-            time.sleep(delay)
-            output.put((delay, packet))
+            timestamp, packet = pickle.load(fd)
+            if last is not None:
+                delay = timestamp - last
+                time.sleep(delay)
+            last = timestamp
+            output.put((timestamp, packet))
 
 
 def componentwise_median(vectors: list[np.ndarray]) -> Eeg:
