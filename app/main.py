@@ -81,7 +81,7 @@ def main():
         "--mode",
         type=str,
         choices=["gui", "terminal"],
-        default="terminal",
+        default="gui",
         help="Mode selector for output (default: terminal)",
     )
 
