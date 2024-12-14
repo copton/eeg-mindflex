@@ -131,7 +131,8 @@ def replay_task(
             timestamp, packet = pickle.load(fd)
             if last is not None:
                 delay = timestamp - last
-                time.sleep(delay)
+                if delay > 0:
+                    time.sleep(delay)
             last = timestamp
             output.put((timestamp, packet))
 

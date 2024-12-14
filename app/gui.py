@@ -3,8 +3,8 @@ from queue import Queue
 
 import numpy as np
 import pyqtgraph as pg  # type: ignore
-from PySide6.QtCore import QTimer  # type: ignore
-from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget  # type: ignore
+from PySide6.QtCore import QTimer, Slot, Signal  # type: ignore
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QPushButton  # type: ignore
 
 from model import Eeg, Raw, bands
 
@@ -87,6 +87,28 @@ class EegPlotWindow(QWidget):
                 self.plot_data[band][-1] = value
                 self.plots[band].setData(self.plot_data[band])
 
+    def on_clear_graph(self):
+        self.plot_data = {band: np.zeros(1000) for band in bands()}
+        for band in bands():
+            self.plots[band].setData(self.plot_data[band])
+
+
+class ControlWindow(QWidget):
+    clear_graph_triggered = Signal()
+
+    def __init__(self):
+        super().__init__()
+
+        self.layout = QVBoxLayout(self)
+        self.button = QPushButton("clear graph")
+        self.layout.addWidget(self.button)
+
+        self.button.clicked.connect(self.trigger_custom_action)
+
+    @Slot()
+    def trigger_custom_action(self):
+        self.clear_graph_triggered.emit()
+
 
 class Gui:
     def __init__(self, eeg_data: Queue, raw_data: Queue) -> None:
@@ -99,6 +121,12 @@ class Gui:
         self.raw_window = RawPlotWindow(raw_data)
         self.raw_window.resize(800, 600)
         self.raw_window.show()
+
+        self.control_window = ControlWindow()
+        self.control_window.show()
+        self.control_window.clear_graph_triggered.connect(
+            self.eeg_window.on_clear_graph
+        )
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.on_timer)
