@@ -8,6 +8,8 @@ from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget  # type: ignore
 
 from model import Eeg, Raw, bands
 
+raw_i=0
+
 color_palette = [
     (255, 0, 0),  # Red
     (0, 255, 0),  # Green
@@ -46,9 +48,11 @@ class RawPlotWindow(QWidget):
 
     def on_timer(self):
         while not self.raw_data.empty():
+            global raw_i
+            raw_i+=1
+            raw_i = raw_i % 10000
             delay, packet = self.raw_data.get()
-            self.plot_data = np.roll(self.plot_data, -1)
-            self.plot_data[-1] = packet.value
+            self.plot_data[raw_i] = packet.value
             self.plot.setData(self.plot_data)
 
 
