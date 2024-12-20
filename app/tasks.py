@@ -165,9 +165,9 @@ def prepare_data_task(
         if isinstance(packet, Aggregated):
             window.append(packet.eeg.as_vector())
             if packet.eeg.high_alpha > 10000 or packet.eeg.low_alpha > 10000:
-                set_volume(50)
+                set_volume(40)
             else:
-                set_volume(30)
+                set_volume(15)
             if len(window) == WINDOW_SIZE:
                 eeg_data.put((timestamp, componentwise_median(window)))
                 window.pop(0)
