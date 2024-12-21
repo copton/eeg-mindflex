@@ -132,8 +132,9 @@ def main():
             "--live or --replay"
         )
         sys.exit(1)
-    subprocess.Popen("caffeinate -di", shell=True)
+    process=subprocess.Popen("caffeinate -di", shell=True)
     run_app(app)
+    process.terminate()
 
 
 def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Callable]:
