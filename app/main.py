@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import sys
+import subprocess
 from datetime import datetime
 from enum import Enum
 from functools import partial
@@ -131,8 +132,9 @@ def main():
             "--live or --replay"
         )
         sys.exit(1)
-
+    process=subprocess.Popen("caffeinate -di", shell=True)
     run_app(app)
+    process.terminate()
 
 
 def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Callable]:

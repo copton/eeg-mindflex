@@ -1,6 +1,8 @@
 import logging
 import pickle
 import time
+import subprocess
+
 from parser import parse
 from pathlib import Path
 from queue import Empty, Queue
@@ -15,6 +17,9 @@ from model import Aggregated, Eeg, Packet, Raw
 
 WINDOW_SIZE = 60
 
+def set_volume(level):
+    # Lautstärke zwischen 0 (leise) und 100 (maximal)
+    subprocess.run(["osascript", "-e", f"set volume output volume {level}"])
 
 def coordinated_task(func):
     logger = logging.getLogger(f"{__name__}.{func.__name__}")
@@ -160,6 +165,10 @@ def prepare_data_task(
 
         if isinstance(packet, Aggregated):
             window.append(packet.eeg.as_vector())
+            if packet.eeg.high_alpha > 10000 or packet.eeg.low_alpha > 10000:
+                set_volume(40)
+            else:
+                set_volume(15)
             if len(window) == WINDOW_SIZE:
                 eeg_data.put((timestamp, componentwise_median(window)))
                 window.pop(0)
