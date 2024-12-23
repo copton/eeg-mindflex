@@ -20,6 +20,8 @@ from tasks import (
     run_app,
     write_file_task,
 )
+from operating_system import create_os_operations, PreventSleep
+
 
 RECORDINGS_DIR = "recordings"
 BAUD_RATE = 57600
@@ -92,6 +94,13 @@ def main():
         help="Enable debug logging",
     )
 
+    parser.add_argument(
+        "--prevent-sleep",
+        action="store_true",
+        default=True,
+        help="Prevent system from sleeping while running (default: true)",
+    )
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -132,7 +141,16 @@ def main():
         )
         sys.exit(1)
 
-    run_app(app)
+    if args.prevent_sleep:
+        os_operations = create_os_operations()
+        if os_operations is None:
+            sys.stderr.write("No specific implementation for os available")
+            sys.exit(1)
+
+        with PreventSleep(os_operations):
+            run_app(app)
+    else:
+        run_app(app)
 
 
 def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Callable]:
