@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "eeg-mindflex"
+version = "0.1.0"
+description = "Neurofeedback application for the Mindflex"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+packages = [
+    { include = "app" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.11"
+numpy = "^1.26.2"
+pyserial = "^3.5"
+pyqtgraph = "^0.13.0"
+pyside6 = "^6.0.0"
+
+[tool.poetry.group.windows.dependencies]
+
+[tool.poetry.group.macos.dependencies]
+
+[tool.poetry.group.linux.dependencies]
+
+[tool.poetry.group.dev.dependencies]
+black = ">=23.0.0"
+isort = ">=5.0.0"
+mypy = ">=1.0.0"
+flake8 = ">=6.0.0"
+flake8-pyproject = ">=1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+multi_line_output = 3
+line_length = 110
+include_trailing_comma = true
+
+[tool.black]
+line_length = 110 
+
+[tool.flake8]
+max-line-length = 111 

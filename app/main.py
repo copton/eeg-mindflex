@@ -113,10 +113,7 @@ def main():
     if args.live:
         if args.record:
             os.makedirs(RECORDINGS_DIR, exist_ok=True)
-            record = (
-                Path(RECORDINGS_DIR)
-                / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
-            )
+            record = Path(RECORDINGS_DIR) / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
         else:
             record = None
 
@@ -135,10 +132,7 @@ def main():
         app = app_replay(replay, mode)
 
     else:
-        sys.stderr.write(
-            "internal error: argparse is configured with expecting one of "
-            "--live or --replay"
-        )
+        sys.stderr.write("internal error: argparse is configured with expecting one of --live or --replay")
         sys.exit(1)
 
     if args.prevent_sleep:
