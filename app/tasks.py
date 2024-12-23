@@ -12,6 +12,7 @@ import serial  # type: ignore
 from gui import Gui
 from model import Aggregated, Eeg, Packet, Raw
 from parser import parse
+from operating_system import OsOperations
 
 WINDOW_SIZE = 60
 
@@ -148,6 +149,7 @@ def prepare_data_task(
     input: Queue[tuple[float, Packet]],
     eeg_data: Queue[tuple[float, Eeg]],
     raw_data: Queue[tuple[float, Raw]],
+    os_operations: OsOperations,
     stop: Event,
     logger: logging.Logger,
 ) -> None:
@@ -159,6 +161,11 @@ def prepare_data_task(
             continue
 
         if isinstance(packet, Aggregated):
+            if packet.eeg.high_alpha > 10000 or packet.eeg.low_alpha > 10000:
+                os_operations.set_volume(40)
+            else:
+                os_operations.set_volume(15)
+
             window.append(packet.eeg.as_vector())
             if len(window) == WINDOW_SIZE:
                 eeg_data.put((timestamp, componentwise_median(window)))

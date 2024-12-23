@@ -25,6 +25,19 @@ class OsOperations(ABC):
             logger.error(f"Failed to restore sleep: {e}")
         logger.debug("Sleep prevention disabled")
 
+    def set_volume(self, volume: float) -> None:
+        """Sets the system volume level.
+
+        Args:
+            volume: Float that will be clipped between 0.0 and 1.0 representing volume level
+        """
+        volume = max(0.0, min(1.0, volume))
+        try:
+            self._set_volume(volume)
+        except Exception as e:
+            logger.error(f"Failed to set volume: {e}")
+        logger.debug(f"Volume set to {volume}")
+
     @abstractmethod
     def _restore_sleep(self) -> None:
         """Restores the system's default sleep behavior."""
@@ -33,6 +46,10 @@ class OsOperations(ABC):
     @abstractmethod
     def _prevent_sleep(self) -> None:
         """Internal method to prevent the system from entering sleep mode."""
+        pass
+
+    @abstractmethod
+    def _set_volume(self, volume: float) -> None:
         pass
 
 
@@ -58,6 +75,17 @@ class _WindowsOperations(OsOperations):
             ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
             logger.debug("Sleep prevention disabled on Windows")
 
+    def _set_volume(self, volume: float) -> None:
+        from ctypes import cast, POINTER
+        from comtypes import CLSCTX_ALL
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+
+        devices = AudioUtilities.GetSpeakers()
+        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        volume_interface = cast(interface, POINTER(IAudioEndpointVolume))
+        volume_interface.SetMasterVolumeLevelScalar(volume, None)
+        logger.debug(f"Volume set to {volume} on Windows")
+
 
 class _MacOperations(OsOperations):
     def __init__(self):
@@ -74,6 +102,14 @@ class _MacOperations(OsOperations):
             self._caffeinate_process.terminate()
             self._caffeinate_process = None
             logger.debug("Sleep prevention disabled on macOS")
+
+    def _set_volume(self, volume: float) -> None:
+        import subprocess
+
+        # Convert 0-1 float to 0-100 integer
+        vol = int(volume * 100)
+        subprocess.run(["osascript", "-e", f"set volume output volume {vol}"])
+        logger.debug(f"Volume set to {volume} on macOS")
 
 
 class _LinuxOperations(OsOperations):
@@ -106,6 +142,15 @@ class _LinuxOperations(OsOperations):
             ]
         )
         logger.debug("Sleep prevention disabled on Linux")
+
+    def _set_volume(self, volume: float) -> None:
+        # Clip volume between 0 and 1
+        import subprocess
+
+        # Convert 0-1 float to 0-100 integer
+        vol = int(volume * 100)
+        subprocess.run(["amixer", "sset", "Master", f"{vol}%"])
+        logger.debug(f"Volume set to {volume} on Linux")
 
 
 def create_os_operations() -> Optional[OsOperations]:

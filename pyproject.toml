@@ -16,6 +16,8 @@ pyqtgraph = "^0.13.0"
 pyside6 = "^6.0.0"
 
 [tool.poetry.group.windows.dependencies]
+comtypes = "^1.1.12"
+pycaw = "^0.1.0"
 
 [tool.poetry.group.macos.dependencies]
 
