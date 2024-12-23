@@ -1,7 +1,6 @@
 import logging
 import pickle
 import time
-from parser import parse
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
@@ -12,6 +11,7 @@ import serial  # type: ignore
 
 from gui import Gui
 from model import Aggregated, Eeg, Packet, Raw
+from parser import parse
 
 WINDOW_SIZE = 60
 
