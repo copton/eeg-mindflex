@@ -124,9 +124,7 @@ class Gui:
 
         self.control_window = ControlWindow()
         self.control_window.show()
-        self.control_window.clear_graph_triggered.connect(
-            self.eeg_window.on_clear_graph
-        )
+        self.control_window.clear_graph_triggered.connect(self.eeg_window.on_clear_graph)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.on_timer)
