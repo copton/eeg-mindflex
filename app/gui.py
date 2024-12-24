@@ -65,16 +65,36 @@ class EegPlotWindow(QWidget):
         self.setLayout(layout)
         self.plot_widget.addLegend()
 
-        self.plots = {
-            band: self.plot_widget.plot(
-                pen=pg.mkPen(
-                    color=color_palette[i],
-                    width=2,
-                ),
-                name=band,
+        # Add second y-axis on the right side
+        self.second_axis = pg.ViewBox()
+        self.plot_widget.scene().addItem(self.second_axis)
+        self.plot_widget.getAxis("right").linkToView(self.second_axis)
+        self.second_axis.setXLink(self.plot_widget.getViewBox())
+
+        # Show the right axis
+        self.plot_widget.showAxis("right")
+
+        self.plots = {}
+        for i, band in enumerate(bands()):
+            pen = pg.mkPen(
+                color=color_palette[i],
+                width=2,
             )
-            for i, band in enumerate(bands())
-        }
+
+            if band in ("high_beta", "low_beta"):
+                # Create plot linked to right axis for beta bands
+                plot = pg.PlotDataItem(
+                    pen=pen,
+                    name=band,
+                )
+                self.second_axis.addItem(plot)
+                self.plots[band] = plot
+            else:
+                # Create normal plot for other bands
+                self.plots[band] = self.plot_widget.plot(
+                    pen=pen,
+                    name=band,
+                )
 
         self.plot_data = {band: np.zeros(1000) for band in bands()}
 
@@ -124,9 +144,7 @@ class Gui:
 
         self.control_window = ControlWindow()
         self.control_window.show()
-        self.control_window.clear_graph_triggered.connect(
-            self.eeg_window.on_clear_graph
-        )
+        self.control_window.clear_graph_triggered.connect(self.eeg_window.on_clear_graph)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.on_timer)

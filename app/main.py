@@ -20,6 +20,8 @@ from tasks import (
     run_app,
     write_file_task,
 )
+from operating_system import create_os_operations, OsOperations, PreventSleep
+
 
 RECORDINGS_DIR = "recordings"
 BAUD_RATE = 57600
@@ -92,6 +94,13 @@ def main():
         help="Enable debug logging",
     )
 
+    parser.add_argument(
+        "--prevent-sleep",
+        action="store_true",
+        default=True,
+        help="Prevent system from sleeping while running (default: true)",
+    )
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -101,17 +110,19 @@ def main():
     logger = logging.getLogger(__name__)
     logger.debug("debug logs enabled")
 
+    os_operations = create_os_operations()
+    if os_operations is None:
+        sys.stderr.write("No specific implementation for os available")
+        sys.exit(1)
+
     if args.live:
         if args.record:
             os.makedirs(RECORDINGS_DIR, exist_ok=True)
-            record = (
-                Path(RECORDINGS_DIR)
-                / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
-            )
+            record = Path(RECORDINGS_DIR) / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
         else:
             record = None
 
-        app = app_live(args.live, record, mode)
+        app = app_live(args.live, record, mode, os_operations)
 
     elif args.replay:
         if args.record:
@@ -123,19 +134,20 @@ def main():
             sys.stderr.write(f"Replay file `{replay}` does not exist")
             sys.exit(1)
 
-        app = app_replay(replay, mode)
+        app = app_replay(replay, mode, os_operations)
 
     else:
-        sys.stderr.write(
-            "internal error: argparse is configured with expecting one of "
-            "--live or --replay"
-        )
+        sys.stderr.write("internal error: argparse is configured with expecting one of --live or --replay")
         sys.exit(1)
 
-    run_app(app)
+    if args.prevent_sleep:
+        with PreventSleep(os_operations):
+            run_app(app)
+    else:
+        run_app(app)
 
 
-def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Callable]:
+def app_live(port: str, record: Optional[Path], mode: Mode, os_operations: OsOperations) -> list[Callable]:
     tasks: list[Callable] = []
     packets: Queue[tuple[float, Packet]] = Queue()
     tasks.append(partial(read_serial_task, port, BAUD_RATE, packets))
@@ -147,27 +159,28 @@ def app_live(port: str, record: Optional[Path], mode: Mode) -> list[Callable]:
         tasks.append(partial(write_file_task, packets_fork1, record))
         packets = packets_fork2
 
-    tasks.extend(_consumers(packets, mode))
+    tasks.extend(_consumers(packets, mode, os_operations))
     return tasks
 
 
-def app_replay(replay: Path, mode: Mode) -> list[Callable]:
+def app_replay(replay: Path, mode: Mode, os_operations: OsOperations) -> list[Callable]:
     tasks: list[Callable] = []
     packets: Queue[tuple[float, Packet]] = Queue()
     tasks.append(partial(replay_task, replay, packets))
 
-    tasks.extend(_consumers(packets, mode))
+    tasks.extend(_consumers(packets, mode, os_operations))
     return tasks
 
 
 def _consumers(
     packets: Queue[tuple[float, Packet]],
     mode: Mode,
+    os_operations: OsOperations,
 ) -> list[Callable]:
     tasks: list[Callable] = []
     eeg_data: Queue[tuple[float, Eeg]] = Queue()
     raw_data: Queue[tuple[float, Raw]] = Queue()
-    tasks.append(partial(prepare_data_task, packets, eeg_data, raw_data))
+    tasks.append(partial(prepare_data_task, packets, eeg_data, raw_data, os_operations))
 
     if mode == Mode.TERMINAL:
         tasks.append(partial(print_packets_task, eeg_data, raw_data, sys.stdout))
