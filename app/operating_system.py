@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import subprocess
 import logging
 from typing import Optional
 
@@ -54,7 +55,7 @@ class OsOperations(ABC):
 
 
 class _WindowsOperations(OsOperations):
-    def __init__(self):
+    def __init__(self) -> None:
         self._previous_state: Optional[int] = None
 
     def _prevent_sleep(self) -> None:
@@ -62,23 +63,23 @@ class _WindowsOperations(OsOperations):
 
         ES_CONTINUOUS = 0x80000000
         ES_SYSTEM_REQUIRED = 0x00000001
-        self._previous_state = ctypes.windll.kernel32.SetThreadExecutionState(
+        self._previous_state = ctypes.windll.kernel32.SetThreadExecutionState(  # type: ignore
             ES_CONTINUOUS | ES_SYSTEM_REQUIRED
         )
         logger.debug("Sleep prevention enabled on Windows")
 
-    def restore_sleep(self) -> None:
+    def _restore_sleep(self) -> None:
         if self._previous_state is not None:
             import ctypes
 
             ES_CONTINUOUS = 0x80000000
-            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)  # type: ignore
             logger.debug("Sleep prevention disabled on Windows")
 
     def _set_volume(self, volume: float) -> None:
         from ctypes import cast, POINTER
-        from comtypes import CLSCTX_ALL
-        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        from comtypes import CLSCTX_ALL  # type: ignore
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume  # type: ignore
 
         devices = AudioUtilities.GetSpeakers()
         interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
@@ -88,12 +89,10 @@ class _WindowsOperations(OsOperations):
 
 
 class _MacOperations(OsOperations):
-    def __init__(self):
-        self._caffeinate_process = None
+    def __init__(self) -> None:
+        self._caffeinate_process: Optional[subprocess.Popen] = None
 
     def _prevent_sleep(self) -> None:
-        import subprocess
-
         self._caffeinate_process = subprocess.Popen(["caffeinate", "-d"])
         logger.debug("Sleep prevention enabled on macOS")
 

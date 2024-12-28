@@ -9,8 +9,8 @@ from pathlib import Path
 from queue import Queue
 from typing import Callable, Optional
 
-from model import Eeg, Packet, Raw
-from tasks import (
+from app.model import Eeg, Packet, Raw
+from app.tasks import (
     fork_task,
     gui_task,
     prepare_data_task,
@@ -20,7 +20,7 @@ from tasks import (
     run_app,
     write_file_task,
 )
-from operating_system import create_os_operations, OsOperations, PreventSleep
+from app.operating_system import create_os_operations, OsOperations, PreventSleep
 
 
 RECORDINGS_DIR = "recordings"
@@ -103,6 +103,11 @@ def main():
 
     # Parse arguments
     args = parser.parse_args()
+
+    run(args)
+
+
+def run(args: argparse.Namespace) -> None:
 
     mode = Mode(args.mode)
 

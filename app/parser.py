@@ -5,7 +5,7 @@ https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protoco
 from typing import Generator, Optional
 import logging
 
-from model import Aggregated, Eeg, Packet, Raw
+from app.model import Aggregated, Eeg, Packet, Raw
 
 logger = logging.getLogger(__name__)
 

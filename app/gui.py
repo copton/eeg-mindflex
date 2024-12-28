@@ -6,7 +6,7 @@ import pyqtgraph as pg  # type: ignore
 from PySide6.QtCore import QTimer, Slot, Signal  # type: ignore
 from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QPushButton  # type: ignore
 
-from model import Eeg, Raw, bands
+from app.model import Eeg, Raw, bands
 
 color_palette = [
     (255, 0, 0),  # Red

@@ -2,11 +2,14 @@
 name = "eeg-mindflex"
 version = "0.1.0"
 description = "Neurofeedback application for the Mindflex"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Alexander Bernauer <acopton@gmail.com>", "jovelleu <jovell@gmail.com>"]
 readme = "README.md"
 packages = [
     { include = "app" }
 ]
+
+[tool.poetry.scripts]
+app = "app.main:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
@@ -17,7 +20,7 @@ pyside6 = "^6.0.0"
 
 [tool.poetry.group.windows.dependencies]
 comtypes = "^1.1.12"
-pycaw = "^0.1.0"
+pycaw = "^20240210"
 
 [tool.poetry.group.macos.dependencies]
 
@@ -29,6 +32,7 @@ isort = ">=5.0.0"
 mypy = ">=1.0.0"
 flake8 = ">=6.0.0"
 flake8-pyproject = ">=1.0.0"
+pytest = ">=8.3.4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -44,3 +48,6 @@ line_length = 110
 
 [tool.flake8]
 max-line-length = 111 
+
+[tool.mypy]
+mypy_path = "app"

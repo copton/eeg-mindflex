@@ -9,10 +9,10 @@ from typing import Callable, Generator, TextIO
 import numpy as np
 import serial  # type: ignore
 
-from gui import Gui
-from model import Aggregated, Eeg, Packet, Raw
-from parser import parse
-from operating_system import OsOperations
+from app.gui import Gui
+from app.model import Aggregated, Eeg, Packet, Raw
+from app.parser import parse
+from app.operating_system import OsOperations
 
 WINDOW_SIZE = 60
 
