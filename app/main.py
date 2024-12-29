@@ -10,6 +10,7 @@ from queue import Queue
 from typing import Callable, Optional
 
 from app.model import Eeg, Packet, Raw
+from app.operating_system import OsOperations, PreventSleep, create_os_operations
 from app.tasks import (
     fork_task,
     gui_task,
@@ -20,8 +21,6 @@ from app.tasks import (
     run_app,
     write_file_task,
 )
-from app.operating_system import create_os_operations, OsOperations, PreventSleep
-
 
 RECORDINGS_DIR = "recordings"
 BAUD_RATE = 57600

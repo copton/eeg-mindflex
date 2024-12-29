@@ -2,8 +2,8 @@
 https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protocol
 """
 
-from typing import Generator, Optional
 import logging
+from typing import Generator, Optional
 
 from app.model import Aggregated, Eeg, Packet, Raw
 

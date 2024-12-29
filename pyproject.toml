@@ -33,6 +33,7 @@ mypy = ">=1.0.0"
 flake8 = ">=6.0.0"
 flake8-pyproject = ">=1.0.0"
 pytest = ">=8.3.4"
+pre-commit = "^3.6.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -44,10 +45,10 @@ line_length = 110
 include_trailing_comma = true
 
 [tool.black]
-line_length = 110 
+line_length = 110
 
 [tool.flake8]
-max-line-length = 111 
+max-line-length = 111
 
 [tool.mypy]
 mypy_path = "app"

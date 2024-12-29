@@ -3,8 +3,8 @@ from queue import Queue
 
 import numpy as np
 import pyqtgraph as pg  # type: ignore
-from PySide6.QtCore import QTimer, Slot, Signal  # type: ignore
-from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QPushButton  # type: ignore
+from PySide6.QtCore import QTimer, Signal, Slot  # type: ignore
+from PySide6.QtWidgets import QApplication, QPushButton, QVBoxLayout, QWidget  # type: ignore
 
 from app.model import Eeg, Raw, bands
 

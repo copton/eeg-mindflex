@@ -11,8 +11,8 @@ import serial  # type: ignore
 
 from app.gui import Gui
 from app.model import Aggregated, Eeg, Packet, Raw
-from app.parser import parse
 from app.operating_system import OsOperations
+from app.parser import parse
 
 WINDOW_SIZE = 60
 

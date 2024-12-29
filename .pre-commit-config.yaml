@@ -1,0 +1,52 @@
+# Use local hooks to leverage the versions installed by Poetry
+repos:
+-   repo: local
+    hooks:
+    # Modifying hooks (formatters) go first
+    -   id: isort
+        name: isort
+        entry: poetry run isort
+        language: system
+        types: [python]
+        require_serial: true  # Force running single-threaded
+        stages: [push]
+
+    -   id: black
+        name: black
+        entry: poetry run black
+        language: system
+        types: [python]
+        require_serial: true  # Force running single-threaded
+        stages: [push]
+
+    # Linting hooks (checkers) go after
+    -   id: flake8
+        name: flake8
+        entry: poetry run flake8
+        language: system
+        types: [python]
+        stages: [push]
+
+    -   id: mypy
+        name: mypy
+        entry: poetry run mypy
+        language: system
+        types: [python]
+        stages: [push]
+
+    # Testing hooks go last
+    -   id: pytest
+        name: pytest
+        entry: poetry run pytest
+        language: system
+        types: [python]
+        pass_filenames: false  # Run all tests regardless of what files changed
+        stages: [push]
+
+# Keep some basic pre-commit-hooks
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-added-large-files

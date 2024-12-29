@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
-import subprocess
 import logging
+import subprocess
+from abc import ABC, abstractmethod
 from typing import Optional
-
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +76,8 @@ class _WindowsOperations(OsOperations):
             logger.debug("Sleep prevention disabled on Windows")
 
     def _set_volume(self, volume: float) -> None:
-        from ctypes import cast, POINTER
+        from ctypes import POINTER, cast
+
         from comtypes import CLSCTX_ALL  # type: ignore
         from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume  # type: ignore
 
