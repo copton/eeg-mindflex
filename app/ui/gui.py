@@ -1,12 +1,9 @@
-import sys
-from queue import Queue
-
 import numpy as np
 import pyqtgraph as pg  # type: ignore
 from PySide6.QtCore import QTimer, Signal, Slot  # type: ignore
 from PySide6.QtWidgets import QApplication, QPushButton, QVBoxLayout, QWidget  # type: ignore
 
-from app.model import Eeg, Raw, bands
+from app.framework import Actor, ActorInfrastructure, bands
 
 color_palette = [
     (255, 0, 0),  # Red
@@ -21,10 +18,9 @@ color_palette = [
 
 
 class RawPlotWindow(QWidget):
-    def __init__(self, raw_data: Queue[tuple[float, Raw]]):
+    def __init__(self, infra: ActorInfrastructure):
         super().__init__()
-
-        self.raw_data: Queue[tuple[float, Raw]] = raw_data
+        self._infra = infra
 
         self.setWindowTitle("raw data")
         self.plot_widget = pg.PlotWidget()
@@ -45,18 +41,19 @@ class RawPlotWindow(QWidget):
         self.plot_data = np.zeros(10_000)
 
     def on_timer(self):
-        while not self.raw_data.empty():
-            delay, packet = self.raw_data.get()
-            self.plot_data = np.roll(self.plot_data, -1)
-            self.plot_data[-1] = packet.value
-            self.plot.setData(self.plot_data)
+        pass
+        # TODO: Implement this
+        # while not self.raw_data.empty():
+        #     delay, packet = self.raw_data.get()
+        #     self.plot_data = np.roll(self.plot_data, -1)
+        #     self.plot_data[-1] = packet.value
+        #     self.plot.setData(self.plot_data)
 
 
 class EegPlotWindow(QWidget):
-    def __init__(self, eeg_data: Queue[tuple[float, Eeg]]):
+    def __init__(self, infra: ActorInfrastructure):
         super().__init__()
-
-        self.eeg_data: Queue[tuple[float, Eeg]] = eeg_data
+        self._infra = infra
 
         self.setWindowTitle("eeg data")
         self.plot_widget = pg.PlotWidget()
@@ -99,29 +96,27 @@ class EegPlotWindow(QWidget):
         self.plot_data = {band: np.zeros(1000) for band in bands()}
 
     def on_timer(self):
-        while not self.eeg_data.empty():
-            delay, eeg = self.eeg_data.get()
-            for band in bands():
-                value = getattr(eeg, band)
-                self.plot_data[band] = np.roll(self.plot_data[band], -1)
-                self.plot_data[band][-1] = value
-                self.plots[band].setData(self.plot_data[band])
-
-    def on_clear_graph(self):
-        self.plot_data = {band: np.zeros(1000) for band in bands()}
-        for band in bands():
-            self.plots[band].setData(self.plot_data[band])
+        pass
+        # TODO: Implement this
+        # while not self.eeg_data.empty():
+        #     delay, eeg = self.eeg_data.get()
+        #     for band in bands():
+        #         value = getattr(eeg, band)
+        #         self.plot_data[band] = np.roll(self.plot_data[band], -1)
+        #         self.plot_data[band][-1] = value
+        #         self.plots[band].setData(self.plot_data[band])
 
 
 class ControlWindow(QWidget):
     clear_graph_triggered = Signal()
 
-    def __init__(self):
+    def __init__(self, infra: ActorInfrastructure):
         super().__init__()
+        self._infra = infra
 
-        self.layout = QVBoxLayout(self)
+        self.layout_box = QVBoxLayout(self)
         self.button = QPushButton("clear graph")
-        self.layout.addWidget(self.button)
+        self.layout_box.addWidget(self.button)
 
         self.button.clicked.connect(self.trigger_custom_action)
 
@@ -130,25 +125,38 @@ class ControlWindow(QWidget):
         self.clear_graph_triggered.emit()
 
 
-class Gui:
-    def __init__(self, eeg_data: Queue, raw_data: Queue) -> None:
-        self.app = QApplication(sys.argv)
+class GUI(Actor):
+    def __init__(self, infra: ActorInfrastructure) -> None:
+        super().__init__(
+            infra,
+            name="gui",
+            channels=[infra.packet_channel.id],
+            capture_thread=True,
+            run_to_completion=False,
+        )
 
-        self.eeg_window = EegPlotWindow(eeg_data)
+    def act(self) -> bool:
+        self.app = QApplication()
+
+        self.eeg_window = EegPlotWindow(self._infra)
         self.eeg_window.resize(1024, 768)
         self.eeg_window.show()
 
-        self.raw_window = RawPlotWindow(raw_data)
+        self.raw_window = RawPlotWindow(self._infra)
         self.raw_window.resize(800, 600)
         self.raw_window.show()
 
-        self.control_window = ControlWindow()
+        self.control_window = ControlWindow(self._infra)
         self.control_window.show()
-        self.control_window.clear_graph_triggered.connect(self.eeg_window.on_clear_graph)
+        # TODO: Implement this
+        # self.control_window.clear_graph_triggered.connect(self.eeg_window.on_clear_graph)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.on_timer)
         self.timer.start(50)
+
+        self.app.exec()
+        return False
 
     def on_timer(self):
         try:
@@ -156,9 +164,6 @@ class Gui:
             self.raw_window.on_timer()
         except KeyboardInterrupt:
             self.quit()
-
-    def run(self):
-        self.app.exec()
 
     def quit(self):
         if QApplication.instance() is not None:

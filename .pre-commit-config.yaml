@@ -3,6 +3,14 @@ repos:
 -   repo: local
     hooks:
     # Modifying hooks (formatters) go first
+    -   id: autoflake
+        name: autoflake
+        entry: poetry run autoflake --in-place --remove-all-unused-imports
+        language: system
+        types: [python]
+        require_serial: true
+        stages: [push]
+
     -   id: isort
         name: isort
         entry: poetry run isort

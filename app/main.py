@@ -4,26 +4,31 @@ import os
 import sys
 from datetime import datetime
 from enum import Enum
-from functools import partial
 from pathlib import Path
-from queue import Queue
-from typing import Callable, Optional
+from typing import Optional
 
-from app.model import Eeg, Packet, Raw
-from app.operating_system import OsOperations, PreventSleep, create_os_operations
-from app.tasks import (
-    fork_task,
-    gui_task,
-    prepare_data_task,
-    print_packets_task,
-    read_serial_task,
-    replay_task,
-    run_app,
-    write_file_task,
+from app.framework import (
+    ActorInfrastructure,
+    ActorPool,
+    Channel,
+    Eeg,
+    Hub,
+    MedianEeg,
+    Packet,
+    Quality,
+    Raw,
+    Timer,
 )
+from app.sensor import Recorder, Replay, make_reader
+from app.system import OsOperations, PreventSleep, create_os_operations
+from app.ui import GUI, Console, VolumeControl
 
 RECORDINGS_DIR = "recordings"
-BAUD_RATE = 57600
+
+
+class UIMode(str, Enum):
+    GUI = "gui"
+    TERMINAL = "terminal"
 
 
 def setup_console_logger(enable_debug: bool) -> None:
@@ -44,11 +49,6 @@ def setup_console_logger(enable_debug: bool) -> None:
     # Avoid adding multiple handlers during reconfiguration
     if not logger.handlers:
         logger.addHandler(console_handler)
-
-
-class Mode(str, Enum):
-    GUI = "gui"
-    TERMINAL = "terminal"
 
 
 def main():
@@ -103,95 +103,81 @@ def main():
     # Parse arguments
     args = parser.parse_args()
 
+    setup_console_logger(args.debug)
+    logger = logging.getLogger(__name__)
+    logger.debug("debug logs enabled")
+
     run(args)
 
 
 def run(args: argparse.Namespace) -> None:
 
-    mode = Mode(args.mode)
+    ui_mode = UIMode(args.mode)
 
-    setup_console_logger(args.debug)
-    logger = logging.getLogger(__name__)
-    logger.debug("debug logs enabled")
-
-    os_operations = create_os_operations()
+    os_operations: Optional[OsOperations] = create_os_operations()
     if os_operations is None:
         sys.stderr.write("No specific implementation for os available")
         sys.exit(1)
 
-    if args.live:
-        if args.record:
-            os.makedirs(RECORDINGS_DIR, exist_ok=True)
-            record = Path(RECORDINGS_DIR) / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pkl"
-        else:
-            record = None
+    timer = Timer()
+    hub = Hub(timer)
+    pool = ActorPool()
+    raw_channel: Channel[Raw] = Channel("raw", hub)
+    eeg_channel: Channel[Eeg] = Channel("eeg", hub)
+    quality_channel: Channel[Quality] = Channel("quality", hub)
+    packet_channel: Channel[Packet] = Channel("packet", hub)
+    median_eeg_channel: Channel[MedianEeg] = Channel("median_eeg", hub)
+    infra = ActorInfrastructure(
+        hub,
+        pool,
+        timer,
+        raw_channel,
+        eeg_channel,
+        quality_channel,
+        packet_channel,
+        median_eeg_channel,
+    )
 
-        app = app_live(args.live, record, mode, os_operations)
+    if args.live:
+        make_reader(infra, args.live)
 
     elif args.replay:
-        if args.record:
-            sys.stderr.write("--record is not supported in --replay mode")
-            sys.exit(1)
-
         replay = Path(args.replay)
+
         if not replay.exists():
             sys.stderr.write(f"Replay file `{replay}` does not exist")
             sys.exit(1)
 
-        app = app_replay(replay, mode, os_operations)
+        Replay(infra, replay)
 
     else:
         sys.stderr.write("internal error: argparse is configured with expecting one of --live or --replay")
         sys.exit(1)
 
-    if args.prevent_sleep:
-        with PreventSleep(os_operations):
-            run_app(app)
+    if args.record:
+        os.makedirs(RECORDINGS_DIR, exist_ok=True)
+        record = Path(RECORDINGS_DIR) / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        Recorder(infra, record)
+
+    VolumeControl(infra, os_operations)
+
+    if ui_mode == UIMode.GUI:
+        GUI(infra)
+    elif ui_mode == UIMode.TERMINAL:
+        Console(infra, sys.stdout)
     else:
-        run_app(app)
+        sys.stderr.write(f"internal error: unknown ui mode `{ui_mode}`")
+        sys.exit(1)
+
+    with PreventSleep(args.prevent_sleep, os_operations):
+        run_app(pool)
 
 
-def app_live(port: str, record: Optional[Path], mode: Mode, os_operations: OsOperations) -> list[Callable]:
-    tasks: list[Callable] = []
-    packets: Queue[tuple[float, Packet]] = Queue()
-    tasks.append(partial(read_serial_task, port, BAUD_RATE, packets))
-
-    if record is not None:
-        packets_fork1: Queue = Queue()
-        packets_fork2: Queue = Queue()
-        tasks.append(partial(fork_task, packets, packets_fork1, packets_fork2))
-        tasks.append(partial(write_file_task, packets_fork1, record))
-        packets = packets_fork2
-
-    tasks.extend(_consumers(packets, mode, os_operations))
-    return tasks
-
-
-def app_replay(replay: Path, mode: Mode, os_operations: OsOperations) -> list[Callable]:
-    tasks: list[Callable] = []
-    packets: Queue[tuple[float, Packet]] = Queue()
-    tasks.append(partial(replay_task, replay, packets))
-
-    tasks.extend(_consumers(packets, mode, os_operations))
-    return tasks
-
-
-def _consumers(
-    packets: Queue[tuple[float, Packet]],
-    mode: Mode,
-    os_operations: OsOperations,
-) -> list[Callable]:
-    tasks: list[Callable] = []
-    eeg_data: Queue[tuple[float, Eeg]] = Queue()
-    raw_data: Queue[tuple[float, Raw]] = Queue()
-    tasks.append(partial(prepare_data_task, packets, eeg_data, raw_data, os_operations))
-
-    if mode == Mode.TERMINAL:
-        tasks.append(partial(print_packets_task, eeg_data, raw_data, sys.stdout))
-    else:
-        tasks.append(partial(gui_task, eeg_data, raw_data))
-
-    return tasks
+def run_app(pool: ActorPool) -> None:
+    # One of the actors will capture the main thread that runs this function...
+    pool.start()
+    # .. so we reach this point here when that main actor quits.
+    pool.stop()
 
 
 if __name__ == "__main__":

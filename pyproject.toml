@@ -34,6 +34,9 @@ flake8 = ">=6.0.0"
 flake8-pyproject = ">=1.0.0"
 pytest = ">=8.3.4"
 pre-commit = "^3.6.0"
+autoflake = "^2.3.1"
+pytest-mock = "^3.14.0"
+pytest-dependency = "^0.6.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -49,6 +52,25 @@ line_length = 110
 
 [tool.flake8]
 max-line-length = 111
+extend-ignore = "E203"  # Black and flake8 disagree on whitespace before a colon
+per-file-ignores = [
+    "app/ui/__init__.py:F401",
+    "app/framework/__init__.py:F401",
+    "app/data_processing/__init__.py:F401",
+    "app/__init__.py:F401",
+    "app/system/__init__.py:F401",
+    "app/sensor/__init__.py:F401",
+]
 
 [tool.mypy]
 mypy_path = "app"
+
+[tool.autoflake]
+exclude = [
+    "app/ui/__init__.py",
+    "app/framework/__init__.py",
+    "app/data_processing/__init__.py",
+    "app/__init__.py",
+    "app/system/__init__.py",
+    "app/sensor/__init__.py",
+]
