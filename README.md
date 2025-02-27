@@ -70,9 +70,8 @@ pre-commit run --hook-stage push --all-files
 pre-commit run --hook-stage push --files path/to/file1.py path/to/file2.py
 
 # Run specific push-stage checks
-pre-commit run isort --hook-stage push --all-files
-pre-commit run black --hook-stage push --all-files
-pre-commit run flake8 --hook-stage push --all-files
+pre-commit run ruff-format --hook-stage push --all-files
+pre-commit run ruff-check --hook-stage push --all-files
 pre-commit run mypy --hook-stage push --all-files
 pre-commit run pytest --hook-stage push --all-files
 ```

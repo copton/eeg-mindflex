@@ -1,23 +1,23 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from app.framework import (
     Actor,
     ActorInfrastructure,
+    ActorState,
     ChannelID,
+    SubscriberID,
     Timestamp,
     packet_to_dict,
-    ActorState,
-    SubscriberID,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class Recorder(Actor):
-    def __init__(self, infra: ActorInfrastructure, recording: Path, wait_for: Optional[SubscriberID]):
+    def __init__(self, infra: ActorInfrastructure, recording: Path, wait_for: SubscriberID | None):
         super().__init__(
             infra,
             name="recorder",

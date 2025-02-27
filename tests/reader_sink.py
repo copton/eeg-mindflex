@@ -4,14 +4,14 @@ from typing import Any
 from app.framework import (
     Actor,
     ActorInfrastructure,
+    ActorState,
     ChannelID,
-    SubscriberID,
     Eeg,
     Packet,
     Quality,
     Raw,
+    SubscriberID,
     Timestamp,
-    ActorState,
 )
 
 logger = logging.getLogger(__name__)

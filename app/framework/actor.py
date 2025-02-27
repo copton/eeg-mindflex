@@ -1,8 +1,7 @@
 import logging
 import threading
 import traceback
-from abc import ABC
-from typing import Any, Optional
+from typing import Any
 
 from .hub import ChannelID, SubscriberID, Timestamp
 from .infra import ActorInfrastructure
@@ -11,7 +10,7 @@ from .types import ActorState
 logger = logging.getLogger(__name__)
 
 
-class Actor(ABC):
+class Actor:
     """Encapsulates a thread for running background tasks."""
 
     def __init__(
@@ -26,7 +25,7 @@ class Actor(ABC):
         self._name = name
         self._channels = channels
         self._run_to_completion = run_to_completion
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._state = ActorState.INIT
         self._state_lock = threading.Lock()
 

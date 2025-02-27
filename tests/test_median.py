@@ -96,5 +96,5 @@ def test_median(infra: ActorInfrastructure, mocker) -> None:
 
     assert len(given) == len(expected), f"expected {len(expected)} items, but got {len(given)}"
 
-    for i, (g, e) in enumerate(zip(expected, given)):
+    for i, (g, e) in enumerate(zip(expected, given, strict=False)):
         assert g == e, f"{i}: expected\n{g}\nbut got\n{e}"

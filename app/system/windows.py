@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from .interface import OsOperations
 
@@ -8,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class WindowsOperations(OsOperations):
     def __init__(self) -> None:
-        self._previous_state: Optional[int] = None
+        self._previous_state: int | None = None
 
     def _prevent_sleep(self) -> None:
         import ctypes

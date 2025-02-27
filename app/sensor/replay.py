@@ -1,7 +1,8 @@
-from pathlib import Path
 import json
 import logging
-from app.framework import Actor, ActorInfrastructure, Raw, Aggregated, packet_from_dict
+from pathlib import Path
+
+from app.framework import Actor, ActorInfrastructure, Aggregated, Raw, packet_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class Replay(Actor):
         self._count = 0
 
     def setup(self) -> None:
-        with open(self._recording, "r") as fd:
+        with open(self._recording) as fd:
             self._records = json.load(fd)
             self.run()
 
@@ -31,7 +32,7 @@ class Replay(Actor):
         self._count += 1
         timestamp = record["timestamp"]
         packet = packet_from_dict(record["packet"])
-        # self._infra.timer.catchup(timestamp)
+        self._infra.timer.catchup(timestamp)
 
         self._infra.hub.publish(self._infra.packet_channel.id, packet)
         match packet:

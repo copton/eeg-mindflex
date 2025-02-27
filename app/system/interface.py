@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ class OsOperations(ABC):
         pass
 
 
-def create_os_operations() -> Optional[OsOperations]:
+def create_os_operations() -> OsOperations | None:
     """Factory function that creates the appropriate OsOperations object based
     on the current OS.
 

@@ -5,7 +5,6 @@ import sys
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from app.framework import (
     ActorInfrastructure,
@@ -111,10 +110,9 @@ def main():
 
 
 def run(args: argparse.Namespace) -> None:
-
     ui_mode = UIMode(args.mode)
 
-    os_operations: Optional[OsOperations] = create_os_operations()
+    os_operations: OsOperations | None = create_os_operations()
     if os_operations is None:
         sys.stderr.write("No specific implementation for os available")
         sys.exit(1)
@@ -157,7 +155,7 @@ def run(args: argparse.Namespace) -> None:
     if args.record:
         os.makedirs(RECORDINGS_DIR, exist_ok=True)
         record = Path(RECORDINGS_DIR) / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
-        Recorder(infra, record)
+        Recorder(infra, record, wait_for=None)
 
     VolumeControl(infra, os_operations)
 

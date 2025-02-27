@@ -3,7 +3,6 @@ https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protoco
 """
 
 import logging
-from typing import Optional
 
 from app.framework import Aggregated, Eeg, Packet, Raw
 
@@ -16,17 +15,17 @@ class Parser:
     def __init__(self) -> None:
         self.prev_byte: int = ord("c")
         self.in_packet: bool = False
-        self.payload: Optional[list[int]] = None
-        self.packet: Optional[Packet] = None
+        self.payload: list[int] | None = None
+        self.packet: Packet | None = None
 
-    def __call__(self, data: bytes) -> Optional[tuple[bytes, Packet]]:
+    def __call__(self, data: bytes) -> tuple[bytes, Packet] | None:
         for i, byte in enumerate(data):
             packet = self._parse(byte)
             if packet is not None:
                 return data[i + 1 :], packet
         return None
 
-    def _parse(self, cur_byte: int) -> Optional[Packet]:
+    def _parse(self, cur_byte: int) -> Packet | None:
         if not self.in_packet and self.prev_byte == 0xAA and cur_byte == 0xAA:
             self.in_packet = True
             self.payload = None
@@ -66,7 +65,7 @@ class Parser:
         return None
 
 
-def raw_parser(payload: list[int]) -> Optional[Raw]:
+def raw_parser(payload: list[int]) -> Raw | None:
     code_level = payload[0]
     if code_level != 0x80:
         logger.warning("raw packet with unexpected code %d", code_level)
@@ -86,10 +85,10 @@ def raw_parser(payload: list[int]) -> Optional[Raw]:
     return Raw(value=value)
 
 
-def aggregated_parser(payload: list[int]) -> Optional[Aggregated]:
-    quality: Optional[int] = None
-    attention: Optional[int] = None
-    meditation: Optional[int] = None
+def aggregated_parser(payload: list[int]) -> Aggregated | None:
+    quality: int | None = None
+    attention: int | None = None
+    meditation: int | None = None
     eeg: list[int] = []
 
     i = 0

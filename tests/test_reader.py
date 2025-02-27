@@ -1,21 +1,14 @@
 from pathlib import Path
-from typing import Any
 
 from app.framework import (
-    Actor,
     ActorInfrastructure,
-    ActorState,
     Aggregated,
     Channel,
-    ChannelID,
     Eeg,
-    Packet,
     Quality,
     Raw,
-    Timestamp,
 )
 from app.sensor import make_reader
-
 from tests.reader_sink import ReaderSink
 
 
@@ -51,4 +44,4 @@ def test_reader_from_file(infra: ActorInfrastructure) -> None:
     assert all(isinstance(q, Quality) for q in sink.quality_data), "Non-Quality data in quality_data"
 
     # Verify that all packets are either Raw or Aggregated
-    assert all(isinstance(p, (Raw, Aggregated)) for p in sink.packets), "Unknown packet type received"
+    assert all(isinstance(p, Raw | Aggregated) for p in sink.packets), "Unknown packet type received"

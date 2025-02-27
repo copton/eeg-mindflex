@@ -1,6 +1,6 @@
 import threading
 from queue import Empty, Queue
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from .timer import Timer, Timestamp
 
@@ -53,7 +53,7 @@ class Hub:
         except Empty:
             return None
 
-    def timeseries(self, channel: ChannelID, number_of_points: Optional[int] = None) -> TimeSeries:
+    def timeseries(self, channel: ChannelID, number_of_points: int | None = None) -> TimeSeries:
         with self._lock:
             if channel not in self._data:
                 return []

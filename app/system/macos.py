@@ -1,6 +1,5 @@
 import logging
 import subprocess
-from typing import Optional
 
 from .interface import OsOperations
 
@@ -9,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class MacOperations(OsOperations):
     def __init__(self) -> None:
-        self._caffeinate_process: Optional[subprocess.Popen] = None
+        self._caffeinate_process: subprocess.Popen | None = None
 
     def _prevent_sleep(self) -> None:
         self._caffeinate_process = subprocess.Popen(["caffeinate", "-d"])

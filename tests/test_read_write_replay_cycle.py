@@ -1,14 +1,12 @@
+import json
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Any
-import tempfile
-import json
 
 import pytest
 
-from app.framework import ChannelID, Channel
-from app.sensor import make_reader, Recorder, Replay
-
+from app.framework import Channel
+from app.sensor import Recorder, Replay, make_reader
 from tests.reader_sink import ReaderSink
 
 
@@ -23,8 +21,8 @@ class Context:
 
     """
 
-    recording_file: Optional[Path]
-    sink: Optional[ReaderSink]
+    recording_file: Path | None
+    sink: ReaderSink | None
 
 
 @pytest.fixture(scope="session")
@@ -64,7 +62,7 @@ def test_read_write_replay_cycle_phase_1(infra, context):
 
     # Verify that the output file was created
     assert output_path.exists(), "Output file was not created"
-    with open(output_path, "r") as fd:
+    with open(output_path) as fd:
         data = json.load(fd)
         assert len(data) == 10_8942, "Wrong number of packets in output file"
 

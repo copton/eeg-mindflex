@@ -1,5 +1,5 @@
 import threading
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from .hub import SubscriberID
 from .types import ActorState
@@ -10,9 +10,9 @@ if TYPE_CHECKING:
 
 class ActorPool:
     def __init__(self) -> None:
-        self._actors: list["Actor"] = []
+        self._actors: list[Actor] = []
         self._stop_event = threading.Event()
-        self._main_thread_actor: Optional["Actor"] = None
+        self._main_thread_actor: Actor | None = None
 
     def add(self, actor: "Actor", capture_thread: bool) -> threading.Event:
         self._actors.append(actor)
