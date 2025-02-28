@@ -43,8 +43,6 @@ def test_read_write_replay_cycle_phase_1(infra, context):
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as fd:
         output_path = Path(fd.name)
 
-    print(f"output_path: {output_path}")
-
     # Create reader, writer and sink
     reader = make_reader(infra, test_data_path)
     Recorder(infra, output_path, reader.name)
