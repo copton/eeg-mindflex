@@ -30,6 +30,7 @@ class Actor:
         self._state_lock = threading.Lock()
 
         self._stop_event = self._infra.pool.add(self, capture_thread)
+        self._capture_thread = capture_thread
         self._infra.hub.subscribe(self._name, channels)
 
     @property
@@ -44,22 +45,22 @@ class Actor:
         return self._name
 
     def start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            logger.warning("Thread %s already running", self._name)
-            return
-
-        self._thread = threading.Thread(target=self.setup, daemon=True)
-        self._thread.start()
-        logger.debug("Actor %s started in new thread", self._name)
+        if self._capture_thread:
+            logger.debug("Actor `%s` continuing in main thread", self._name)
+            self.setup()
+        else:
+            self._thread = threading.Thread(target=self.setup, daemon=True)
+            self._thread.start()
+            logger.debug("Actor `%s` started in new thread", self._name)
 
     def join(self) -> None:
         if self._thread is None:
             return
 
-        logger.debug("Waiting for thread for actor %s to stop", self._name)
+        logger.debug("Waiting for thread for actor `%s` to stop", self._name)
         self._thread.join()
         self._thread = None
-        logger.debug("Thread for actor %s stopped", self._name)
+        logger.debug("Thread for actor `%s` stopped", self._name)
 
     def run(self) -> None:
         self._set_state(ActorState.RUNNING)
@@ -72,16 +73,18 @@ class Actor:
                         self.handle(channel, timestamp, item)
 
                 if not self.act():
+                    logger.debug("Actor `%s` has chosen to stop", self._name)
                     break
 
                 if not self._run_to_completion and self._stop_event.is_set():
+                    logger.debug("Actor `%s` is stopping because the stop event is set", self._name)
                     break
 
             self._set_state(ActorState.SHUTTING_DOWN)
             self.shutdown()
 
         except Exception as e:
-            logger.error("Actor %s failed with error: %s\n%s", self._name, e, traceback.format_exc())
+            logger.error("Actor `%s` failed with error: %s\n%s", self._name, e, traceback.format_exc())
 
         finally:
             self._set_state(ActorState.COMPLETED)

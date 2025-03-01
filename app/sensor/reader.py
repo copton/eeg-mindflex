@@ -24,7 +24,7 @@ class _SensorReader(Actor):
     def __init__(self, infra: ActorInfrastructure):
         super().__init__(
             infra,
-            name="sensor-reader",
+            name="sensor_reader",
             channels=[],
             capture_thread=False,
             run_to_completion=False,
@@ -57,6 +57,7 @@ class SensorReaderFromFile(_SensorReader):
     def __init__(self, infra: ActorInfrastructure, filename: Path):
         super().__init__(infra)
         self._filename = filename
+        self.delay: None | float = 0.02
 
     def setup(self) -> None:
         with open(self._filename, "br") as fd:
@@ -70,6 +71,10 @@ class SensorReaderFromFile(_SensorReader):
             return False
 
         self.process(data)
+
+        if self.delay is not None:
+            time.sleep(self.delay)
+
         return True
 
 

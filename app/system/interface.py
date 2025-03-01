@@ -13,7 +13,8 @@ class OsOperations(ABC):
             self._prevent_sleep()
         except Exception as e:
             logger.error(f"Failed to prevent sleep: {e}")
-        logger.debug("Sleep prevention enabled")
+        else:
+            logger.info("Sleep prevention enabled")
 
     def restore_sleep(self) -> None:
         """Restores the system's default sleep behavior."""
@@ -21,7 +22,8 @@ class OsOperations(ABC):
             self._restore_sleep()
         except Exception as e:
             logger.error(f"Failed to restore sleep: {e}")
-        logger.debug("Sleep prevention disabled")
+        else:
+            logger.info("Sleep prevention disabled")
 
     def set_volume(self, volume: float) -> None:
         """Sets the system volume level.
@@ -34,7 +36,8 @@ class OsOperations(ABC):
             self._set_volume(volume)
         except Exception as e:
             logger.error(f"Failed to set volume: {e}")
-        logger.debug(f"Volume set to {volume}")
+        else:
+            logger.info(f"Volume set to {volume}")
 
     @abstractmethod
     def _restore_sleep(self) -> None:

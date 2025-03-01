@@ -17,7 +17,7 @@ poetry install --with dev
 ```bash
 /usr/bin/python3 -m venv .venv
 source .venv/bin/activate
-pip install poetry
+pip install -r requirements.txt
 poetry install --with macos
 ```
 
@@ -26,7 +26,7 @@ poetry install --with macos
 ```bash
 C:\Python311\python.exe -m venv .venv
 .venv\Scripts\activate
-pip install poetry
+pip install -r requirements.txt
 poetry install --with windows
 ```
 
@@ -35,7 +35,7 @@ poetry install --with windows
 ```bash
 /usr/bin/python3 -m venv .venv
 source .venv/bin/activate
-pip install poetry
+pip install -r requirements.txt
 poetry install --with linux
 ```
 

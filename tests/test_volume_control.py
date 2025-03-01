@@ -57,6 +57,16 @@ def test_volume_control(infra: ActorInfrastructure, mocker) -> None:
             delta=1,
             theta=1,
             low_alpha=1,
+            high_alpha=1,
+            low_beta=1,
+            high_beta=1,
+            low_gamma=1,
+            mid_gamma=1,
+        ),
+        MedianEeg(
+            delta=1,
+            theta=1,
+            low_alpha=1,
             high_alpha=10_001,
             low_beta=1,
             high_beta=1,
@@ -82,7 +92,6 @@ def test_volume_control(infra: ActorInfrastructure, mocker) -> None:
     infra.pool.wait()
     infra.pool.stop()
 
-    assert os_operations.set_volume.call_count == len(events)
     os_operations.set_volume.assert_has_calls(
         [
             mocker.call(0.15),

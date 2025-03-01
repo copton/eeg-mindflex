@@ -1,8 +1,11 @@
+import logging
 import threading
 from typing import TYPE_CHECKING
 
 from .hub import SubscriberID
 from .types import ActorState
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .actor import Actor
@@ -29,6 +32,8 @@ class ActorPool:
     def start(self) -> None:
         self._stop_event.clear()
         for actor in self._actors:
+            if actor == self._main_thread_actor:
+                continue
             actor.start()
 
         if self._main_thread_actor:
@@ -43,7 +48,9 @@ class ActorPool:
             self._main_thread_actor.join()
 
     def wait(self) -> None:
+        logger.debug("Waiting for stop event to be set")
         self._stop_event.wait()
+        logger.debug("Stop event set")
 
     def get_state(self, actor_name: SubscriberID) -> ActorState:
         for actor in self._actors:

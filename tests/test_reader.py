@@ -24,6 +24,7 @@ def test_reader_from_file(infra: ActorInfrastructure) -> None:
 
     # Create reader and sink
     reader = make_reader(infra, test_data_path)
+    reader.delay = None  # type: ignore
     sink = ReaderSink(infra, reader.name)
 
     # Run the actor pool

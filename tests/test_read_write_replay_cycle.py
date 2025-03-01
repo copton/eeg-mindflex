@@ -45,6 +45,7 @@ def test_read_write_replay_cycle_phase_1(infra, context):
 
     # Create reader, writer and sink
     reader = make_reader(infra, test_data_path)
+    reader.delay = None
     Recorder(infra, output_path, reader.name)
     sink = ReaderSink(infra, reader.name)
 

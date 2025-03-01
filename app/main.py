@@ -6,6 +6,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
+from app.data_processing import Median
 from app.framework import (
     ActorInfrastructure,
     ActorPool,
@@ -137,7 +138,7 @@ def run(args: argparse.Namespace) -> None:
     )
 
     if args.live:
-        make_reader(infra, args.live)
+        make_reader(infra, Path(args.live))
 
     elif args.replay:
         replay = Path(args.replay)
@@ -157,6 +158,7 @@ def run(args: argparse.Namespace) -> None:
         record = Path(RECORDINGS_DIR) / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
         Recorder(infra, record, wait_for=None)
 
+    Median(infra)
     VolumeControl(infra, os_operations)
 
     if ui_mode == UIMode.GUI:
