@@ -1,129 +1,115 @@
-import numpy as np
-import pyqtgraph as pg  # type: ignore
-from PySide6.QtCore import QTimer, Signal, Slot  # type: ignore
-from PySide6.QtWidgets import QApplication, QPushButton, QVBoxLayout, QWidget  # type: ignore
+import logging
+from collections import deque
+from time import time
 
-from app.framework import Actor, ActorInfrastructure, bands
+from PySide6.QtCharts import QChart, QChartView, QLineSeries, QValueAxis
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPainter
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 
-color_palette = [
-    (255, 0, 0),  # Red
-    (0, 255, 0),  # Green
-    (0, 0, 255),  # Blue
-    (255, 255, 0),  # Yellow
-    (255, 165, 0),  # Orange
-    (75, 0, 130),  # Indigo
-    (255, 255, 255),  # White
-    (0, 255, 255),  # Cyan
-]
+from app.framework import Actor, ActorInfrastructure
 
+logger = logging.getLogger(__name__)
 
-class RawPlotWindow(QWidget):
+class MainWindow(QMainWindow):
     def __init__(self, infra: ActorInfrastructure):
         super().__init__()
-        self._infra = infra
+        self.infra = infra
 
-        self.setWindowTitle("raw data")
-        self.plot_widget = pg.PlotWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(self.plot_widget)
-        self.setLayout(layout)
-        self.plot_widget.addLegend()
-        self.plot_widget.setYRange(-500, 500)
+        # Constants
+        self.WINDOW_SECONDS = 60  # Time window to display
+        self.SAMPLING_RATE = 512  # Hz (typical for MindFlex)
+        self.MAX_POINTS = self.WINDOW_SECONDS * self.SAMPLING_RATE
+        self.DISPLAY_POINTS = 1000  # Maximum points to display
 
-        self.plot = self.plot_widget.plot(
-            pen=pg.mkPen(
-                color=(255, 255, 255),
-                width=1,
-            ),
-            name="raw",
-        )
+        # Initialize data buffer and tracking
+        self.data_buffer = deque(maxlen=self.MAX_POINTS)
+        self.last_fetch_time = 0
 
-        self.plot_data = np.zeros(10_000)
+        self.setWindowTitle("EEG MindFlex")
+        self.setMinimumSize(800, 600)
 
-    def on_timer(self):
-        pass
-        # TODO: Implement this
-        # while not self.raw_data.empty():
-        #     delay, packet = self.raw_data.get()
-        #     self.plot_data = np.roll(self.plot_data, -1)
-        #     self.plot_data[-1] = packet.value
-        #     self.plot.setData(self.plot_data)
+        # Create the main widget and layout
+        main_widget = QWidget()
+        self.setCentralWidget(main_widget)
+        layout = QVBoxLayout(main_widget)
 
+        # Create the chart
+        self.chart = QChart()
+        self.chart.setTitle("Raw EEG Signal")
+        
+        # Create the line series for the data
+        self.series = QLineSeries()
+        self.chart.addSeries(self.series)
 
-class EegPlotWindow(QWidget):
-    def __init__(self, infra: ActorInfrastructure):
-        super().__init__()
-        self._infra = infra
+        # Create X axis (time)
+        self.axis_x = QValueAxis()
+        self.axis_x.setTitleText("Time (seconds)")
+        self.axis_x.setRange(0, self.WINDOW_SECONDS)
+        self.chart.addAxis(self.axis_x, Qt.AlignmentFlag.AlignBottom)
+        self.series.attachAxis(self.axis_x)
 
-        self.setWindowTitle("eeg data")
-        self.plot_widget = pg.PlotWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(self.plot_widget)
-        self.setLayout(layout)
-        self.plot_widget.addLegend()
+        # Create Y axis (signal)
+        self.axis_y = QValueAxis()
+        self.axis_y.setTitleText("Signal Value")
+        self.axis_y.setRange(0, 256)
+        self.chart.addAxis(self.axis_y, Qt.AlignmentFlag.AlignLeft)
+        self.series.attachAxis(self.axis_y)
 
-        # Add second y-axis on the right side
-        self.second_axis = pg.ViewBox()
-        self.plot_widget.scene().addItem(self.second_axis)
-        self.plot_widget.getAxis("right").linkToView(self.second_axis)
-        self.second_axis.setXLink(self.plot_widget.getViewBox())
+        # Create chart view
+        chart_view = QChartView(self.chart)
+        chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        layout.addWidget(chart_view)
 
-        # Show the right axis
-        self.plot_widget.showAxis("right")
+        # Setup update timer
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.update_plot)
+        self.update_timer.start(100)  # Update every 100ms
 
-        self.plots = {}
-        for i, band in enumerate(bands()):
-            pen = pg.mkPen(
-                color=color_palette[i],
-                width=2,
-            )
+    def update_plot(self):
+        # Fetch only new data since last update
+        new_data = self.fetch_new_data()
+        if not new_data:
+            return
 
-            if band in ("high_beta", "low_beta"):
-                # Create plot linked to right axis for beta bands
-                plot = pg.PlotDataItem(
-                    pen=pen,
-                    name=band,
-                )
-                self.second_axis.addItem(plot)
-                self.plots[band] = plot
-            else:
-                # Create normal plot for other bands
-                self.plots[band] = self.plot_widget.plot(
-                    pen=pen,
-                    name=band,
-                )
+        # Add new data to buffer
+        self.data_buffer.extend(new_data)
 
-        self.plot_data = {band: np.zeros(1000) for band in bands()}
+        # Update the plot only if we have data
+        if self.data_buffer:
+            # Clear and rebuild the series with decimated data
+            self.series.clear()
+            
+            # Calculate stride for data decimation
+            stride = max(1, len(self.data_buffer) // self.DISPLAY_POINTS)
+            
+            # Plot decimated data
+            points_to_plot = list(self.data_buffer)[::stride]
+            for time, value in points_to_plot:
+                self.series.append(time, value)
 
-    def on_timer(self):
-        pass
-        # TODO: Implement this
-        # while not self.eeg_data.empty():
-        #     delay, eeg = self.eeg_data.get()
-        #     for band in bands():
-        #         value = getattr(eeg, band)
-        #         self.plot_data[band] = np.roll(self.plot_data[band], -1)
-        #         self.plot_data[band][-1] = value
-        #         self.plots[band].setData(self.plot_data[band])
+            # Update X axis range to show the last 60 seconds
+            latest_time = self.data_buffer[-1][0]
+            self.axis_x.setRange(max(0, latest_time - self.WINDOW_SECONDS), 
+                               max(self.WINDOW_SECONDS, latest_time))
 
-
-class ControlWindow(QWidget):
-    clear_graph_triggered = Signal()
-
-    def __init__(self, infra: ActorInfrastructure):
-        super().__init__()
-        self._infra = infra
-
-        self.layout_box = QVBoxLayout(self)
-        self.button = QPushButton("clear graph")
-        self.layout_box.addWidget(self.button)
-
-        self.button.clicked.connect(self.trigger_custom_action)
-
-    @Slot()
-    def trigger_custom_action(self):
-        self.clear_graph_triggered.emit()
-
+    def fetch_new_data(self) -> list[tuple[float, float]]:
+        """
+        Fetch only new data since the last update.
+        Returns:
+            A list of (time, value) tuples containing only new data points
+        """
+        # Get time series data
+        time_series = self.infra.hub.timeseries(self.infra.raw_channel.id)
+        
+        # Filter for only new points
+        new_data = [(t, packet.value) for t, packet in time_series 
+                   if t > self.last_fetch_time]
+        
+        if new_data:
+            self.last_fetch_time = new_data[-1][0]
+        
+        return new_data
 
 class GUI(Actor):
     def __init__(self, infra: ActorInfrastructure) -> None:
@@ -134,37 +120,16 @@ class GUI(Actor):
             capture_thread=True,
             run_to_completion=False,
         )
+        self.infra = infra
+
+    def setup(self) -> None:
+        self.app = QApplication([])
+        self.window = MainWindow(self.infra)
+        self.window.show()
+        self.run()
 
     def act(self) -> bool:
-        self.app = QApplication()
-
-        self.eeg_window = EegPlotWindow(self._infra)
-        self.eeg_window.resize(1024, 768)
-        self.eeg_window.show()
-
-        self.raw_window = RawPlotWindow(self._infra)
-        self.raw_window.resize(800, 600)
-        self.raw_window.show()
-
-        self.control_window = ControlWindow(self._infra)
-        self.control_window.show()
-        # TODO: Implement this
-        # self.control_window.clear_graph_triggered.connect(self.eeg_window.on_clear_graph)
-
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.on_timer)
-        self.timer.start(50)
-
+        logger.info("Running GUI")
         self.app.exec()
+        logger.info("GUI exited")
         return False
-
-    def on_timer(self):
-        try:
-            self.eeg_window.on_timer()
-            self.raw_window.on_timer()
-        except KeyboardInterrupt:
-            self.quit()
-
-    def quit(self):
-        if QApplication.instance() is not None:
-            QApplication.quit()

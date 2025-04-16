@@ -34,11 +34,11 @@ class Median(Actor):
 
         if len(self.values) < WINDOW_SIZE:
             median_eeg = MedianEeg(**{band: 0 for band in bands()})
+            logger.debug(f"{len(self.values)} values in window")
         else:
             median_vector = np.median(self.values, axis=0)
             median_eeg = MedianEeg(*list(median_vector))
             self.values = np.delete(self.values, 0, axis=0)
 
-        logger.debug(f"{len(self.values)} values in window")
 
         self._infra.hub.publish(self._infra.median_eeg_channel.id, median_eeg)

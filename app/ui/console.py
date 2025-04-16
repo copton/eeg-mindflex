@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from typing import Any, TextIO
 
@@ -6,6 +7,8 @@ from rich.live import Live
 from rich.table import Table
 
 from app.framework import Actor, ActorInfrastructure, ChannelID, Timestamp, bands
+
+logger = logging.getLogger(__name__)
 
 
 class Console(Actor):
