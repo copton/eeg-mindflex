@@ -1,6 +1,7 @@
 import logging
 import time
-from typing import Any
+from typing import Any, Dict, List, NamedTuple
+from dataclasses import dataclass
 
 import numpy as np
 from pyqtgraph import PlotWidget, ViewBox, mkPen  # type: ignore
@@ -17,48 +18,54 @@ RAW_SAMPLING_RATE = 100  # Hz
 BAND_SAMPLING_RATE = 1  # Hz
 WINDOW_SIZE = 60  # seconds
 
+@dataclass
+class BandConfig:
+    """Configuration for an EEG band plot"""
+    name: str
+    color: tuple
+    data_attr: str  # The attribute name in MedianEeg to access this band's data
+
+# Define all EEG bands configuration
+BAND_CONFIGS = [
+    BandConfig("Delta", (255, 0, 0), "delta"),      # Red
+    BandConfig("Theta", (255, 165, 0), "theta"),    # Orange
+    BandConfig("Low Alpha", (0, 100, 0), "low_alpha"),  # Dark Green
+    BandConfig("High Alpha", (0, 255, 0), "high_alpha"), # Bright Green
+    BandConfig("Low Beta", (0, 0, 255), "low_beta"),    # Blue
+    BandConfig("High Beta", (75, 0, 130), "high_beta"), # Indigo
+    BandConfig("Low Gamma", (238, 130, 238), "low_gamma"), # Violet
+    BandConfig("Mid Gamma", (128, 0, 128), "mid_gamma"),  # Purple
+]
 
 class RealTimePlot:
     """A class to manage real-time plotting of sensor data"""
 
-    def __init__(self, plot_widget: PlotWidget):
+    def __init__(self, plot_widget: PlotWidget, viewbox: ViewBox):
         """
         Initialize the real-time plot.
 
         Args:
             plot_widget: The pyqtgraph PlotWidget to use for plotting
+            viewbox: The pyqtgraph ViewBox to add the plot line to
         """
         self.plot_widget = plot_widget
+        self.viewbox = viewbox
         self.window_size_seconds = WINDOW_SIZE
-
-        # Calculate buffer size based on window size and sampling rate
         self.buffer_size = WINDOW_SIZE * RAW_SAMPLING_RATE
 
         # Initialize empty data arrays
         self.times = np.array([])
         self.values = np.array([])
-
-        # Track the start time for display purposes
         self.start_time = 0.0
         self.has_data = False
 
-        # Configure plot
-        self.plot_widget.setBackground("w")
-        self.plot_widget.setTitle("EEG Signals")
-        self.plot_widget.setLabel("right", "Raw signal")
-        self.plot_widget.setLabel("bottom", "Time (s)")
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        # Create the plot line with thinner width
+        self.pen = mkPen(color="b", width=1)
+        self.plot_line = self.plot_widget.plotItem.plot(self.times, self.values, pen=self.pen, name="Raw")
+        self.viewbox.addItem(self.plot_line)
 
         # Set initial X range to show the full window
         self.plot_widget.setXRange(0, self.window_size_seconds)
-
-        # Create a ViewBox for raw signal (right axis)
-        self.view_box = self.plot_widget.plotItem.getViewBox()
-        self.view_box.setYRange(-600, 600)
-
-        # Create the plot line with thinner width
-        self.pen = mkPen(color="b", width=1)
-        self.plot_line = self.plot_widget.plot(self.times, self.values, pen=self.pen)
 
     def update_plot(self, time_series: TimeSeries) -> None:
         """
@@ -170,61 +177,35 @@ class RealTimePlot:
                 # Update the axis range
                 self.plot_widget.setXRange(x_min, x_max)
 
+class BandPlot:
+    """A class to manage real-time plotting of EEG band data"""
 
-class AlphaBandPlot:
-    """A class to manage real-time plotting of alpha band data"""
-
-    def __init__(self, plot_widget: PlotWidget):
+    def __init__(self, plot_widget: PlotWidget, config: BandConfig, viewbox: ViewBox):
         self.plot_widget = plot_widget
+        self.viewbox = viewbox
+        self.config = config
         self.window_size_seconds = WINDOW_SIZE
         self.buffer_size = WINDOW_SIZE * BAND_SAMPLING_RATE
 
         # Initialize empty data arrays
         self.times = np.array([])
         self.values = np.array([])
-
-        # Track the start time for display purposes
         self.start_time = 0.0
         self.has_data = False
 
-        # Configure left y-axis for alpha band
-        self.plot_widget.setLabel("left", "Alpha band")
-
-        # Create a new ViewBox for the alpha band data
-        self.view_box = ViewBox()
-        self.plot_widget.scene().addItem(self.view_box)
-
-        # Configure the left axis
-        left_axis = self.plot_widget.getAxis("left")
-        left_axis.linkToView(self.view_box)
-        self.view_box.setYRange(0, 100_000)
-
-        # Link x-axis between views
-        self.view_box.setXLink(self.plot_widget.getViewBox())
-
         # Create the plot line
-        self.pen = mkPen(color=(0, 100, 0), width=3)
-        self.plot_line = self.plot_widget.plotItem.plot(self.times, self.values, pen=self.pen)
-
-        # Move the plot line to the new ViewBox
-        self.plot_line.setParent(self.view_box)
-        self.view_box.addItem(self.plot_line)
-
-        # Update view resizing
-        def updateViews():
-            self.view_box.setGeometry(self.plot_widget.getViewBox().sceneBoundingRect())
-
-        self.plot_widget.getViewBox().sigResized.connect(updateViews)
+        self.pen = mkPen(color=self.config.color, width=2)
+        self.plot_line = self.plot_widget.plotItem.plot([], [], pen=self.pen, name=self.config.name)
+        self.viewbox.addItem(self.plot_line)
 
     def update_plot(self, time_series: TimeSeries) -> None:
         if not time_series:
             return
 
-        # Extract timestamps and alpha values from MedianEeg data
+        # Extract timestamps and band values from MedianEeg data
         new_times = np.array([point[0] for point in time_series])
-        new_values = np.array([point[1].low_alpha for point in time_series])
+        new_values = np.array([getattr(point[1], self.config.data_attr) for point in time_series])
 
-        # Rest of the method is the same as parent class
         if not self.has_data and len(new_times) > 0:
             self.start_time = new_times[0]
             self.has_data = True
@@ -264,7 +245,6 @@ class AlphaBandPlot:
                     self.times = self.times[valid_indices]
                     self.values = self.values[valid_indices]
 
-
 class GUI(Actor):
     def __init__(self, infra: ActorInfrastructure) -> None:
         super().__init__(
@@ -293,10 +273,56 @@ class GUI(Actor):
         self.main_layout = QVBoxLayout()
         self.central_widget.setLayout(self.main_layout)
 
-        # Create single plot widget for both signals
+        # Create single plot widget for all signals
         self.plot_widget = PlotWidget()
-        self.real_time_plot = RealTimePlot(self.plot_widget)
-        self.alpha_plot = AlphaBandPlot(self.plot_widget)  # Use same plot widget
+        
+        # Configure the main plot
+        self.plot_widget.setBackground("w")
+        self.plot_widget.setTitle("EEG Signals")
+        self.plot_widget.setLabel("right", "Raw signal")
+        self.plot_widget.setLabel("left", "Band power")
+        self.plot_widget.setLabel("bottom", "Time (s)")
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        
+        # Create two ViewBoxes
+        self.raw_viewbox = self.plot_widget.getPlotItem().getViewBox()
+        self.band_viewbox = ViewBox()
+        
+        # Add the band ViewBox to the plot
+        self.plot_widget.getPlotItem().scene().addItem(self.band_viewbox)
+        
+        # Set up left Y axis for bands
+        left_axis = self.plot_widget.getPlotItem().getAxis('left')
+        self.plot_widget.getPlotItem().scene().addItem(left_axis)
+        left_axis.linkToView(self.band_viewbox)
+        self.band_viewbox.setYRange(0, 100_000)
+        
+        # Set up right Y axis for raw signal
+        right_axis = self.plot_widget.getPlotItem().getAxis('right')
+        right_axis.linkToView(self.raw_viewbox)
+        self.raw_viewbox.setYRange(-600, 600)
+        
+        # Link X axes
+        self.band_viewbox.setXLink(self.raw_viewbox)
+        
+        # Update views when resizing
+        def updateViews():
+            self.band_viewbox.setGeometry(self.raw_viewbox.sceneBoundingRect())
+        
+        updateViews()
+        self.raw_viewbox.sigResized.connect(updateViews)
+        
+        # Add legend
+        self.plot_widget.addLegend()
+        
+        # Create the raw signal plot (using raw ViewBox)
+        self.real_time_plot = RealTimePlot(self.plot_widget, self.raw_viewbox)
+        
+        # Create all band plots (using band ViewBox)
+        self.band_plots = []
+        for config in BAND_CONFIGS:
+            band_plot = BandPlot(self.plot_widget, config, self.band_viewbox)
+            self.band_plots.append(band_plot)
 
         # Add widget to main layout
         self.main_layout.addWidget(self.plot_widget)
@@ -341,17 +367,22 @@ class GUI(Actor):
         """Update the plots with the latest data from the hub"""
         # Fetch raw data from hub
         raw_data = self.infra.hub.timeseries(
-            self.infra.raw_channel.id, number_of_points=RAW_SAMPLING_RATE * WINDOW_SIZE
+            self.infra.raw_channel.id,
+            number_of_points=RAW_SAMPLING_RATE * WINDOW_SIZE
         )
-
+        
         # Fetch median EEG data from hub (using band sampling rate)
         median_data = self.infra.hub.timeseries(
-            self.infra.median_eeg_channel.id, number_of_points=BAND_SAMPLING_RATE * WINDOW_SIZE
+            self.infra.median_eeg_channel.id,
+            number_of_points=BAND_SAMPLING_RATE * WINDOW_SIZE
         )
 
-        # Update both plots with new data
+        # Update raw signal plot
         self.real_time_plot.update_plot(raw_data)
-        self.alpha_plot.update_plot(median_data)
+        
+        # Update all band plots
+        for band_plot in self.band_plots:
+            band_plot.update_plot(median_data)
 
     def handle(self, channel: ChannelID, timestamp: Timestamp, data: Any) -> None:
         """
