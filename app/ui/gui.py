@@ -28,7 +28,7 @@ class RealTimePlot:
         """
         self.plot_widget = plot_widget
         self.window_size_seconds = WINDOW_SIZE
-        
+
         # Calculate buffer size based on window size and sampling rate
         self.buffer_size = WINDOW_SIZE * SAMPLING_RATE
 
@@ -179,35 +179,35 @@ class GUI(Actor):
             run_to_completion=False,
         )
         self.infra = infra
-        
+
         # Configuration parameters
         self.update_interval = 100  # ms
-        
+
         # Create the application and main window
         self.app = QApplication.instance() or QApplication([])
         self.main_window = QMainWindow()
         self.main_window.setWindowTitle("EEG Mindflex Visualizer")
         self.main_window.resize(1000, 600)
-        
+
         # Create central widget and layout
         self.central_widget = QWidget()
         self.main_layout = QVBoxLayout()
         self.central_widget.setLayout(self.main_layout)
-        
+
         # Create plot widget
         self.plot_widget = PlotWidget()
         self.real_time_plot = RealTimePlot(self.plot_widget)
-        
+
         # Add widgets to main layout
         self.main_layout.addWidget(self.plot_widget)
-        
+
         # Set central widget
         self.main_window.setCentralWidget(self.central_widget)
-        
+
         # Create timer for periodic updates
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_plot)
-        
+
         # Keep track of last processed timestamp
         self.last_timestamp = 0.0
 
@@ -241,10 +241,10 @@ class GUI(Actor):
         """Update the plot with the latest data from the hub"""
         # Fetch raw data from hub
         raw_data = self.infra.hub.timeseries(
-            self.infra.raw_channel.id, 
+            self.infra.raw_channel.id,
             number_of_points=SAMPLING_RATE * WINDOW_SIZE
         )
-        
+
         # Update the plot with new data
         self.real_time_plot.update_plot(raw_data)
 
