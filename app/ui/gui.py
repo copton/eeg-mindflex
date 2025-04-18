@@ -1,14 +1,14 @@
 import logging
-from typing import Any, List, Dict
 import time
+from typing import Any
+
 import numpy as np
+from pyqtgraph import PlotWidget, mkPen  # type: ignore
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMainWindow, QSpinBox, QVBoxLayout, QWidget
 
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSpinBox, QHBoxLayout
-from pyqtgraph import PlotWidget, mkPen
-
-from app.framework import Actor, ActorInfrastructure, ChannelID, Timestamp, Raw
-from app.framework.hub import DataPoint, TimeSeries
+from app.framework import Actor, ActorInfrastructure, ChannelID, Raw, Timestamp
+from app.framework.hub import TimeSeries
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +41,10 @@ class RealTimePlot:
         self.has_data = False
 
         # Configure plot
-        self.plot_widget.setBackground('w')
+        self.plot_widget.setBackground("w")
         self.plot_widget.setTitle("Raw EEG Signal")
-        self.plot_widget.setLabel('left', 'Amplitude')
-        self.plot_widget.setLabel('bottom', 'Time (s)')
+        self.plot_widget.setLabel("left", "Amplitude")
+        self.plot_widget.setLabel("bottom", "Time (s)")
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
 
         # Set initial X range to show the full window
@@ -53,7 +53,7 @@ class RealTimePlot:
         self.plot_widget.setYRange(-600, 600)
 
         # Create the plot line
-        self.pen = mkPen(color='b', width=2)
+        self.pen = mkPen(color="b", width=2)
         self.plot_line = self.plot_widget.plot(self.times, self.values, pen=self.pen)
 
     def update_plot(self, time_series: TimeSeries) -> None:
@@ -144,8 +144,8 @@ class RealTimePlot:
 
             # Keep only the most recent buffer_size points
             if len(self.times) > self.buffer_size:
-                self.times = self.times[-self.buffer_size:]
-                self.values = self.values[-self.buffer_size:]
+                self.times = self.times[-self.buffer_size :]
+                self.values = self.values[-self.buffer_size :]
 
             # Update the plot
             if len(self.times) > 0:
@@ -178,8 +178,8 @@ class RealTimePlot:
 
         # Resize existing data if needed
         if len(self.times) > self.buffer_size:
-            self.times = self.times[-self.buffer_size:]
-            self.values = self.values[-self.buffer_size:]
+            self.times = self.times[-self.buffer_size :]
+            self.values = self.values[-self.buffer_size :]
 
         # Update the plot if we have data
         if len(self.times) > 0:
@@ -209,8 +209,8 @@ class RealTimePlot:
 
         # Resize existing data if needed
         if len(self.times) > self.buffer_size:
-            self.times = self.times[-self.buffer_size:]
-            self.values = self.values[-self.buffer_size:]
+            self.times = self.times[-self.buffer_size :]
+            self.values = self.values[-self.buffer_size :]
 
 
 class GUI(Actor):
@@ -228,7 +228,7 @@ class GUI(Actor):
 
         # Configuration parameters
         self.sampling_rate = 100  # Hz
-        self.window_size = 60     # seconds
+        self.window_size = 60  # seconds
         self.update_interval = 100  # ms
 
         # Create the application and main window
@@ -269,9 +269,7 @@ class GUI(Actor):
         # Create plot widget
         self.plot_widget = PlotWidget()
         self.real_time_plot = RealTimePlot(
-            self.plot_widget,
-            window_size_seconds=self.window_size,
-            sampling_rate=self.sampling_rate
+            self.plot_widget, window_size_seconds=self.window_size, sampling_rate=self.sampling_rate
         )
 
         # Add widgets to main layout
@@ -318,8 +316,7 @@ class GUI(Actor):
         """Update the plot with the latest data from the hub"""
         # Fetch raw data from hub
         raw_data = self.infra.hub.timeseries(
-            self.infra.raw_channel.id,
-            number_of_points=self.sampling_rate * self.window_size
+            self.infra.raw_channel.id, number_of_points=self.sampling_rate * self.window_size
         )
 
         # Update the plot with new data

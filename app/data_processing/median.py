@@ -40,5 +40,4 @@ class Median(Actor):
             median_eeg = MedianEeg(*list(median_vector))
             self.values = np.delete(self.values, 0, axis=0)
 
-
         self._infra.hub.publish(self._infra.median_eeg_channel.id, median_eeg)
