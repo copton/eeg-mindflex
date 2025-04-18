@@ -1,7 +1,7 @@
 import logging
 import time
-from typing import Any, Dict, List, NamedTuple
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from pyqtgraph import PlotWidget, ViewBox, mkPen  # type: ignore
@@ -18,24 +18,28 @@ RAW_SAMPLING_RATE = 100  # Hz
 BAND_SAMPLING_RATE = 1  # Hz
 WINDOW_SIZE = 60  # seconds
 
+
 @dataclass
 class BandConfig:
     """Configuration for an EEG band plot"""
+
     name: str
     color: tuple
     data_attr: str  # The attribute name in MedianEeg to access this band's data
 
+
 # Define all EEG bands configuration
 BAND_CONFIGS = [
-    BandConfig("Delta", (255, 0, 0), "delta"),      # Red
-    BandConfig("Theta", (255, 165, 0), "theta"),    # Orange
+    BandConfig("Delta", (255, 0, 0), "delta"),  # Red
+    BandConfig("Theta", (255, 165, 0), "theta"),  # Orange
     BandConfig("Low Alpha", (0, 100, 0), "low_alpha"),  # Dark Green
-    BandConfig("High Alpha", (0, 255, 0), "high_alpha"), # Bright Green
-    BandConfig("Low Beta", (0, 0, 255), "low_beta"),    # Blue
-    BandConfig("High Beta", (75, 0, 130), "high_beta"), # Indigo
-    BandConfig("Low Gamma", (238, 130, 238), "low_gamma"), # Violet
+    BandConfig("High Alpha", (0, 255, 0), "high_alpha"),  # Bright Green
+    BandConfig("Low Beta", (0, 0, 255), "low_beta"),  # Blue
+    BandConfig("High Beta", (75, 0, 130), "high_beta"),  # Indigo
+    BandConfig("Low Gamma", (238, 130, 238), "low_gamma"),  # Violet
     BandConfig("Mid Gamma", (128, 0, 128), "mid_gamma"),  # Purple
 ]
+
 
 class RealTimePlot:
     """A class to manage real-time plotting of sensor data"""
@@ -177,6 +181,7 @@ class RealTimePlot:
                 # Update the axis range
                 self.plot_widget.setXRange(x_min, x_max)
 
+
 class BandPlot:
     """A class to manage real-time plotting of EEG band data"""
 
@@ -245,6 +250,7 @@ class BandPlot:
                     self.times = self.times[valid_indices]
                     self.values = self.values[valid_indices]
 
+
 class GUI(Actor):
     def __init__(self, infra: ActorInfrastructure) -> None:
         super().__init__(
@@ -275,7 +281,7 @@ class GUI(Actor):
 
         # Create single plot widget for all signals
         self.plot_widget = PlotWidget()
-        
+
         # Configure the main plot
         self.plot_widget.setBackground("w")
         self.plot_widget.setTitle("EEG Signals")
@@ -283,41 +289,41 @@ class GUI(Actor):
         self.plot_widget.setLabel("left", "Band power")
         self.plot_widget.setLabel("bottom", "Time (s)")
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
-        
+
         # Create two ViewBoxes
         self.raw_viewbox = self.plot_widget.getPlotItem().getViewBox()
         self.band_viewbox = ViewBox()
-        
+
         # Add the band ViewBox to the plot
         self.plot_widget.getPlotItem().scene().addItem(self.band_viewbox)
-        
+
         # Set up left Y axis for bands
-        left_axis = self.plot_widget.getPlotItem().getAxis('left')
+        left_axis = self.plot_widget.getPlotItem().getAxis("left")
         self.plot_widget.getPlotItem().scene().addItem(left_axis)
         left_axis.linkToView(self.band_viewbox)
         self.band_viewbox.setYRange(0, 100_000)
-        
+
         # Set up right Y axis for raw signal
-        right_axis = self.plot_widget.getPlotItem().getAxis('right')
+        right_axis = self.plot_widget.getPlotItem().getAxis("right")
         right_axis.linkToView(self.raw_viewbox)
         self.raw_viewbox.setYRange(-600, 600)
-        
+
         # Link X axes
         self.band_viewbox.setXLink(self.raw_viewbox)
-        
+
         # Update views when resizing
         def updateViews():
             self.band_viewbox.setGeometry(self.raw_viewbox.sceneBoundingRect())
-        
+
         updateViews()
         self.raw_viewbox.sigResized.connect(updateViews)
-        
+
         # Add legend
         self.plot_widget.addLegend()
-        
+
         # Create the raw signal plot (using raw ViewBox)
         self.real_time_plot = RealTimePlot(self.plot_widget, self.raw_viewbox)
-        
+
         # Create all band plots (using band ViewBox)
         self.band_plots = []
         for config in BAND_CONFIGS:
@@ -367,19 +373,17 @@ class GUI(Actor):
         """Update the plots with the latest data from the hub"""
         # Fetch raw data from hub
         raw_data = self.infra.hub.timeseries(
-            self.infra.raw_channel.id,
-            number_of_points=RAW_SAMPLING_RATE * WINDOW_SIZE
+            self.infra.raw_channel.id, number_of_points=RAW_SAMPLING_RATE * WINDOW_SIZE
         )
-        
+
         # Fetch median EEG data from hub (using band sampling rate)
         median_data = self.infra.hub.timeseries(
-            self.infra.median_eeg_channel.id,
-            number_of_points=BAND_SAMPLING_RATE * WINDOW_SIZE
+            self.infra.median_eeg_channel.id, number_of_points=BAND_SAMPLING_RATE * WINDOW_SIZE
         )
 
         # Update raw signal plot
         self.real_time_plot.update_plot(raw_data)
-        
+
         # Update all band plots
         for band_plot in self.band_plots:
             band_plot.update_plot(median_data)
