@@ -3,7 +3,7 @@ import time
 from typing import Any
 
 import numpy as np
-from pyqtgraph import PlotWidget, mkPen, ViewBox  # type: ignore
+from pyqtgraph import PlotWidget, ViewBox, mkPen  # type: ignore
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 
@@ -14,8 +14,9 @@ logger = logging.getLogger(__name__)
 
 # Constants
 RAW_SAMPLING_RATE = 100  # Hz
-BAND_SAMPLING_RATE = 1   # Hz
-WINDOW_SIZE = 60        # seconds
+BAND_SAMPLING_RATE = 1  # Hz
+WINDOW_SIZE = 60  # seconds
+
 
 class RealTimePlot:
     """A class to manage real-time plotting of sensor data"""
@@ -47,7 +48,7 @@ class RealTimePlot:
         self.plot_widget.setLabel("right", "Raw signal")
         self.plot_widget.setLabel("bottom", "Time (s)")
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
-        
+
         # Set initial X range to show the full window
         self.plot_widget.setXRange(0, self.window_size_seconds)
 
@@ -169,6 +170,7 @@ class RealTimePlot:
                 # Update the axis range
                 self.plot_widget.setXRange(x_min, x_max)
 
+
 class AlphaBandPlot:
     """A class to manage real-time plotting of alpha band data"""
 
@@ -187,23 +189,23 @@ class AlphaBandPlot:
 
         # Configure left y-axis for alpha band
         self.plot_widget.setLabel("left", "Alpha band")
-        
+
         # Create a new ViewBox for the alpha band data
         self.view_box = ViewBox()
         self.plot_widget.scene().addItem(self.view_box)
-        
+
         # Configure the left axis
-        left_axis = self.plot_widget.getAxis('left')
+        left_axis = self.plot_widget.getAxis("left")
         left_axis.linkToView(self.view_box)
         self.view_box.setYRange(0, 100_000)
-        
+
         # Link x-axis between views
         self.view_box.setXLink(self.plot_widget.getViewBox())
-        
+
         # Create the plot line
         self.pen = mkPen(color=(0, 100, 0), width=3)
         self.plot_line = self.plot_widget.plotItem.plot(self.times, self.values, pen=self.pen)
-        
+
         # Move the plot line to the new ViewBox
         self.plot_line.setParent(self.view_box)
         self.view_box.addItem(self.plot_line)
@@ -211,7 +213,7 @@ class AlphaBandPlot:
         # Update view resizing
         def updateViews():
             self.view_box.setGeometry(self.plot_widget.getViewBox().sceneBoundingRect())
-        
+
         self.plot_widget.getViewBox().sigResized.connect(updateViews)
 
     def update_plot(self, time_series: TimeSeries) -> None:
@@ -261,6 +263,7 @@ class AlphaBandPlot:
                 if len(valid_indices) > 0:
                     self.times = self.times[valid_indices]
                     self.values = self.values[valid_indices]
+
 
 class GUI(Actor):
     def __init__(self, infra: ActorInfrastructure) -> None:
@@ -338,14 +341,12 @@ class GUI(Actor):
         """Update the plots with the latest data from the hub"""
         # Fetch raw data from hub
         raw_data = self.infra.hub.timeseries(
-            self.infra.raw_channel.id,
-            number_of_points=RAW_SAMPLING_RATE * WINDOW_SIZE
+            self.infra.raw_channel.id, number_of_points=RAW_SAMPLING_RATE * WINDOW_SIZE
         )
-        
+
         # Fetch median EEG data from hub (using band sampling rate)
         median_data = self.infra.hub.timeseries(
-            self.infra.median_eeg_channel.id,
-            number_of_points=BAND_SAMPLING_RATE * WINDOW_SIZE
+            self.infra.median_eeg_channel.id, number_of_points=BAND_SAMPLING_RATE * WINDOW_SIZE
         )
 
         # Update both plots with new data
