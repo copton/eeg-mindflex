@@ -1,9 +1,216 @@
 import logging
-from typing import Any
+from typing import Any, List, Dict
+import time
+import numpy as np
 
-from app.framework import Actor, ActorInfrastructure, ChannelID, Timestamp
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSpinBox, QHBoxLayout
+from pyqtgraph import PlotWidget, mkPen
+
+from app.framework import Actor, ActorInfrastructure, ChannelID, Timestamp, Raw
+from app.framework.hub import DataPoint, TimeSeries
 
 logger = logging.getLogger(__name__)
+
+
+class RealTimePlot:
+    """A class to manage real-time plotting of sensor data"""
+    
+    def __init__(self, plot_widget: PlotWidget, window_size_seconds: int = 60, sampling_rate: int = 100):
+        """
+        Initialize the real-time plot.
+        
+        Args:
+            plot_widget: The pyqtgraph PlotWidget to use for plotting
+            window_size_seconds: Size of the time window in seconds (default: 60)
+            sampling_rate: Expected sampling rate in Hz (default: 100)
+        """
+        self.plot_widget = plot_widget
+        self.window_size_seconds = window_size_seconds
+        self.sampling_rate = sampling_rate
+        
+        # Calculate buffer size based on window size and sampling rate
+        self.buffer_size = window_size_seconds * sampling_rate
+        
+        # Initialize empty data arrays
+        self.times = np.array([])
+        self.values = np.array([])
+        
+        # Track the start time for display purposes
+        self.start_time = 0.0
+        self.has_data = False
+        
+        # Configure plot
+        self.plot_widget.setBackground('w')
+        self.plot_widget.setTitle("Raw EEG Signal")
+        self.plot_widget.setLabel('left', 'Amplitude')
+        self.plot_widget.setLabel('bottom', 'Time (s)')
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        
+        # Set initial X range to show the full window
+        self.plot_widget.setXRange(0, self.window_size_seconds)
+        # Set fixed Y range
+        self.plot_widget.setYRange(-600, 600)
+        
+        # Create the plot line
+        self.pen = mkPen(color='b', width=2)
+        self.plot_line = self.plot_widget.plot(self.times, self.values, pen=self.pen)
+    
+    def update_plot(self, time_series: TimeSeries) -> None:
+        """
+        Update the plot with new data points.
+        
+        Args:
+            time_series: List of (timestamp, data) tuples
+        """
+        if not time_series:
+            return
+            
+        # Extract timestamps and values
+        new_times = np.array([point[0] for point in time_series])
+        new_values = np.array([point[1].value for point in time_series])
+        
+        # If this is our first data, record the start time
+        if not self.has_data and len(new_times) > 0:
+            self.start_time = new_times[0]
+            self.has_data = True
+        
+        # Normalize timestamps relative to start time for display
+        new_times_normalized = new_times - self.start_time
+        
+        # Update our data arrays
+        if len(self.times) == 0:
+            self.times = new_times_normalized
+            self.values = new_values
+        else:
+            # Only append new points that come after our latest point
+            if len(new_times_normalized) > 0:
+                # Find the index of new data points that come after our latest point
+                last_time = self.times[-1]
+                indices = np.where(new_times_normalized > last_time)[0]
+                
+                if len(indices) > 0:
+                    self.times = np.append(self.times, new_times_normalized[indices])
+                    self.values = np.append(self.values, new_values[indices])
+        
+        # Update the plot data
+        self.plot_line.setData(self.times, self.values)
+        
+        # Update the x-axis range
+        if len(self.times) > 0:
+            current_time = self.times[-1]
+            
+            # Only start scrolling after we've filled the initial window
+            if current_time >= self.window_size_seconds:
+                x_min = current_time - self.window_size_seconds
+                x_max = current_time
+            else:
+                # Keep the view fixed at 0 to window_size while collecting initial data
+                x_min = 0
+                x_max = self.window_size_seconds
+            
+            self.plot_widget.setXRange(x_min, x_max)
+            
+            # After setting the view, trim the data to keep only what's needed
+            # Keep enough data for the window plus a small buffer
+            if current_time > self.window_size_seconds:
+                cutoff_time = current_time - self.window_size_seconds - 1  # keep 1 second extra as buffer
+                valid_indices = np.where(self.times >= cutoff_time)[0]
+                if len(valid_indices) > 0:
+                    self.times = self.times[valid_indices]
+                    self.values = self.values[valid_indices]
+    
+    def add_new_point(self, timestamp: Timestamp, data: Raw) -> None:
+        """
+        Add a single new data point to the plot.
+        
+        Args:
+            timestamp: The timestamp of the data point
+            data: The Raw data object containing the value
+        """
+        # If this is our first data point, set the start time
+        if not self.has_data:
+            self.start_time = timestamp
+            self.has_data = True
+            
+        # Normalize timestamp
+        normalized_time = timestamp - self.start_time
+        
+        # Only add if it's a new point
+        if len(self.times) == 0 or normalized_time > self.times[-1]:
+            # Create a small time series with just this point
+            self.times = np.append(self.times, normalized_time)
+            self.values = np.append(self.values, data.value)
+            
+            # Keep only the most recent buffer_size points
+            if len(self.times) > self.buffer_size:
+                self.times = self.times[-self.buffer_size:]
+                self.values = self.values[-self.buffer_size:]
+            
+            # Update the plot
+            if len(self.times) > 0:
+                current_time = self.times[-1]
+                
+                # If we've exceeded the window size, start scrolling
+                if current_time > self.window_size_seconds:
+                    x_min = current_time - self.window_size_seconds
+                    x_max = current_time
+                else:
+                    # Otherwise, keep the display fixed from 0 to window_size
+                    x_min = 0
+                    x_max = self.window_size_seconds
+                
+                # Update the plot data
+                self.plot_line.setData(self.times, self.values)
+                
+                # Update the axis range
+                self.plot_widget.setXRange(x_min, x_max)
+    
+    def set_window_size(self, seconds: int) -> None:
+        """
+        Change the time window size.
+        
+        Args:
+            seconds: New window size in seconds
+        """
+        self.window_size_seconds = seconds
+        self.buffer_size = seconds * self.sampling_rate
+        
+        # Resize existing data if needed
+        if len(self.times) > self.buffer_size:
+            self.times = self.times[-self.buffer_size:]
+            self.values = self.values[-self.buffer_size:]
+            
+        # Update the plot if we have data
+        if len(self.times) > 0:
+            current_time = self.times[-1]
+            
+            # If we've exceeded the window size, start scrolling
+            if current_time > self.window_size_seconds:
+                x_min = current_time - self.window_size_seconds
+                x_max = current_time
+            else:
+                # Otherwise, keep the display fixed from 0 to window_size
+                x_min = 0
+                x_max = self.window_size_seconds
+                
+            # Update the axis range
+            self.plot_widget.setXRange(x_min, x_max)
+    
+    def set_sampling_rate(self, rate: int) -> None:
+        """
+        Change the expected sampling rate.
+        
+        Args:
+            rate: New sampling rate in Hz
+        """
+        self.sampling_rate = rate
+        self.buffer_size = self.window_size_seconds * rate
+        
+        # Resize existing data if needed
+        if len(self.times) > self.buffer_size:
+            self.times = self.times[-self.buffer_size:]
+            self.values = self.values[-self.buffer_size:]
 
 
 class GUI(Actor):
@@ -13,34 +220,139 @@ class GUI(Actor):
             name="gui",
             channels=[
                 infra.raw_channel.id,
-                infra.quality_channel.id,
-                infra.median_eeg_channel.id,
             ],
             capture_thread=True,
             run_to_completion=False,
         )
         self.infra = infra
+        
+        # Configuration parameters
+        self.sampling_rate = 100  # Hz
+        self.window_size = 60     # seconds
+        self.update_interval = 100  # ms
+        
+        # Create the application and main window
+        self.app = QApplication.instance() or QApplication([])
+        self.main_window = QMainWindow()
+        self.main_window.setWindowTitle("EEG Mindflex Visualizer")
+        self.main_window.resize(1000, 600)
+        
+        # Create central widget and layout
+        self.central_widget = QWidget()
+        self.main_layout = QVBoxLayout()
+        self.central_widget.setLayout(self.main_layout)
+        
+        # Create controls layout
+        self.controls_layout = QHBoxLayout()
+        
+        # Add sampling rate control
+        self.sampling_rate_label = QLabel("Sampling Rate (Hz):")
+        self.sampling_rate_spinbox = QSpinBox()
+        self.sampling_rate_spinbox.setRange(1, 1000)
+        self.sampling_rate_spinbox.setValue(self.sampling_rate)
+        self.sampling_rate_spinbox.valueChanged.connect(self.on_sampling_rate_changed)
+        
+        # Add window size control
+        self.window_size_label = QLabel("Window Size (s):")
+        self.window_size_spinbox = QSpinBox()
+        self.window_size_spinbox.setRange(1, 300)
+        self.window_size_spinbox.setValue(self.window_size)
+        self.window_size_spinbox.valueChanged.connect(self.on_window_size_changed)
+        
+        # Add controls to layout
+        self.controls_layout.addWidget(self.sampling_rate_label)
+        self.controls_layout.addWidget(self.sampling_rate_spinbox)
+        self.controls_layout.addWidget(self.window_size_label)
+        self.controls_layout.addWidget(self.window_size_spinbox)
+        self.controls_layout.addStretch()
+        
+        # Create plot widget
+        self.plot_widget = PlotWidget()
+        self.real_time_plot = RealTimePlot(
+            self.plot_widget, 
+            window_size_seconds=self.window_size, 
+            sampling_rate=self.sampling_rate
+        )
+        
+        # Add widgets to main layout
+        self.main_layout.addLayout(self.controls_layout)
+        self.main_layout.addWidget(self.plot_widget)
+        
+        # Set central widget
+        self.main_window.setCentralWidget(self.central_widget)
+        
+        # Create timer for periodic updates
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_plot)
+        
+        # Keep track of last processed timestamp
+        self.last_timestamp = 0.0
 
-    def setup(self) -> bool:
-        self.run() 
+    def setup(self) -> None:
+        """Set up the GUI and show the main window"""
+        # Show the main window
+        self.main_window.show()
+        
+        # Start the timer for periodic updates
+        self.timer.start(self.update_interval)
+        
+        # Start the main event loop
+        self.run()
 
     def act(self) -> bool:
-        raw_data = self.infra.hub.timeseries(self.infra.raw_channel.id, number_of_points=100)
-        quality_data = self.infra.hub.timeseries(self.infra.quality_channel.id, number_of_points=100)
-        median_eeg_data = self.infra.hub.timeseries(self.infra.median_eeg_channel.id, number_of_points=100)
-
-        logger.info(f"Raw data: {raw_data}")
-        logger.info(f"Quality data: {quality_data}")
-        logger.info(f"Median EEG data: {median_eeg_data}")
-
+        """
+        Process the QT events and update the GUI
+        
+        Returns:
+            True to keep the actor running
+        """
+        # Process QT events
+        self.app.processEvents()
+        
+        # Sleep a bit to not hog the CPU
+        time.sleep(0.01)
+        
         return True
 
+    def update_plot(self) -> None:
+        """Update the plot with the latest data from the hub"""
+        # Fetch raw data from hub
+        raw_data = self.infra.hub.timeseries(
+            self.infra.raw_channel.id, 
+            number_of_points=self.sampling_rate * self.window_size
+        )
+        
+        # Update the plot with new data
+        self.real_time_plot.update_plot(raw_data)
+
     def handle(self, channel: ChannelID, timestamp: Timestamp, data: Any) -> None:
-        match channel:
-            case self._infra.raw_channel.id:
-                logger.info(f"Raw data: {data}")
-            case self._infra.quality_channel.id:
-                logger.info(f"Quality data: {data}")
-            case self._infra.median_eeg_channel.id:
-                logger.info(f"Median EEG data: {data}")
+        """
+        Handle incoming data from the subscribed channels
+        
+        Args:
+            channel: The channel ID
+            timestamp: The timestamp of the data
+            data: The data object
+        """
+        if channel == self.infra.raw_channel.id:
+            # Add the new data point to the plot
+            self.real_time_plot.add_new_point(timestamp, data)
+            self.last_timestamp = timestamp
+
+    def on_sampling_rate_changed(self, value: int) -> None:
+        """Handle sampling rate changes"""
+        self.sampling_rate = value
+        self.real_time_plot.set_sampling_rate(value)
+        logger.info(f"Sampling rate changed to {value} Hz")
+
+    def on_window_size_changed(self, value: int) -> None:
+        """Handle window size changes"""
+        self.window_size = value
+        self.real_time_plot.set_window_size(value)
+        logger.info(f"Window size changed to {value} seconds")
+
+    def shutdown(self) -> None:
+        """Clean up resources when shutting down"""
+        logger.info("GUI shutting down")
+        self.timer.stop()
 
