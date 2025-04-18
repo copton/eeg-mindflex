@@ -1,11 +1,1 @@
-numpy
-pyserial
-numpy
-pyqtgraph
-pyside6
-black
-isort
-mypy
-flake8
-flake8-pyproject
-
+poetry == 2.1.0

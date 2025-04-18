@@ -1,0 +1,45 @@
+# Use local hooks to leverage the versions installed by Poetry
+repos:
+-   repo: local
+    hooks:
+    # Ruff for formatting and linting
+    -   id: ruff-format
+        name: ruff-format
+        entry: poetry run ruff format
+        language: system
+        types: [python]
+        require_serial: true
+        stages: [push]
+
+    -   id: ruff-check
+        name: ruff-check
+        entry: poetry run ruff check --fix
+        language: system
+        types: [python]
+        require_serial: true
+        stages: [push]
+
+    # Type checking
+    -   id: mypy
+        name: mypy
+        entry: poetry run mypy
+        language: system
+        types: [python]
+        stages: [push]
+
+    # Testing hooks go last
+    -   id: pytest
+        name: pytest
+        entry: poetry run pytest
+        language: system
+        types: [python]
+        pass_filenames: false  # Run all tests regardless of what files changed
+        stages: [push]
+
+# Keep some basic pre-commit-hooks
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-added-large-files

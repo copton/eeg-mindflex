@@ -2,66 +2,70 @@
 https://developer.neurosky.com/docs/doku.php?id=thinkgear_communications_protocol
 """
 
-from typing import Generator, Optional
 import logging
 
-from model import Aggregated, Eeg, Packet, Raw
+from app.framework import Aggregated, Eeg, Packet, Raw
 
 logger = logging.getLogger(__name__)
 
 MAX_PACKET_LEN = 169
 
 
-def parse(input: Generator[int, None, None]) -> Generator[Packet, None, None]:
-    prev_byte: int = ord("c")
-    in_packet: bool = False
-    payload: Optional[list[int]] = None
-    packet: Optional[Packet] = None
+class Parser:
+    def __init__(self) -> None:
+        self.prev_byte: int = ord("c")
+        self.in_packet: bool = False
+        self.payload: list[int] | None = None
+        self.packet: Packet | None = None
 
-    while True:
-        try:
-            cur_byte = next(input)
-        except StopIteration:
-            return
+    def __call__(self, data: bytes) -> tuple[bytes, Packet] | None:
+        for i, byte in enumerate(data):
+            packet = self._parse(byte)
+            if packet is not None:
+                return data[i + 1 :], packet
+        return None
 
-        if not in_packet and prev_byte == 0xAA and cur_byte == 0xAA:
-            in_packet = True
-            payload = None
-            continue
+    def _parse(self, cur_byte: int) -> Packet | None:
+        if not self.in_packet and self.prev_byte == 0xAA and cur_byte == 0xAA:
+            self.in_packet = True
+            self.payload = None
+            return None
 
-        if in_packet:
-            if payload is None:
+        if self.in_packet:
+            if self.payload is None:
                 if cur_byte == 0xAA:
-                    continue
-                packet_len = cur_byte
-                if packet_len >= MAX_PACKET_LEN:
-                    logger.warning("Packet too long: %d", packet_len)
-                    continue
-                checksum_total = 0
-                payload = []
+                    return None
+                self.packet_len = cur_byte
+                if self.packet_len >= MAX_PACKET_LEN:
+                    logger.warning("Packet too long: %d", self.packet_len)
+                    return None
+                self.checksum_total = 0
+                self.payload = []
 
-            elif len(payload) == packet_len:
+            elif len(self.payload) == self.packet_len:
                 packet_checksum = cur_byte
-                in_packet = False
-                if (~(checksum_total & 0xFF) & 0xFF) != packet_checksum:
+                self.in_packet = False
+                if (~(self.checksum_total & 0xFF) & 0xFF) != packet_checksum:
                     logger.warning("invalid checksum")
-                    continue
+                    return None
 
-                if packet_len > 4:
-                    packet = aggregated_parser(payload)
+                if self.packet_len > 4:
+                    self.packet = aggregated_parser(self.payload)
                 else:
-                    packet = raw_parser(payload)
-                if packet is not None:
-                    yield packet
+                    self.packet = raw_parser(self.payload)
+                if self.packet is not None:
+                    return self.packet
             else:
-                checksum_total += cur_byte
-                payload.append(cur_byte)
+                self.checksum_total += cur_byte
+                self.payload.append(cur_byte)
 
         # keep track of last byte to catch sync bytes
-        prev_byte = cur_byte
+        self.prev_byte = cur_byte
+
+        return None
 
 
-def raw_parser(payload: list[int]) -> Optional[Raw]:
+def raw_parser(payload: list[int]) -> Raw | None:
     code_level = payload[0]
     if code_level != 0x80:
         logger.warning("raw packet with unexpected code %d", code_level)
@@ -81,10 +85,10 @@ def raw_parser(payload: list[int]) -> Optional[Raw]:
     return Raw(value=value)
 
 
-def aggregated_parser(payload: list[int]) -> Optional[Aggregated]:
-    quality: Optional[int] = None
-    attention: Optional[int] = None
-    meditation: Optional[int] = None
+def aggregated_parser(payload: list[int]) -> Aggregated | None:
+    quality: int | None = None
+    attention: int | None = None
+    meditation: int | None = None
     eeg: list[int] = []
 
     i = 0
